@@ -136,6 +136,20 @@ def load_crv2_gene_matrix(inst_path):
     lines = f.readlines()
     f.close()
 
+    # # add unique id to all genes
+    # genes = []
+    # unique_id = 0
+    # for inst_line in lines:
+    #     inst_line = inst_line.strip().split()
+
+    #     if len(inst_line) > 1:
+    #       inst_gene = inst_line[1]
+    #     else:
+    #       inst_gene = inst_line[0]
+
+    #     genes.append(inst_gene + '_' + str(unique_id))
+    #     unique_id = unique_id + 1
+
     # add unique id only to duplicate genes
     ini_genes = []
     for inst_line in lines:
