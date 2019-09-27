@@ -18,7 +18,7 @@ def make_dir(directory):
     if not os.path.exists(directory):
         os.mkdir(directory)
 
-def load_v3_comp_sparse_feat_matrix(inst_path):
+def load_crv3_feature_matrix(inst_path):
     # Read Barcodes
     ###########################
     # need to check whether we have tuples
@@ -115,6 +115,105 @@ def load_v3_comp_sparse_feat_matrix(inst_path):
 
     return feature_data
 
+def load_crv2_gene_matrix(inst_path):
+    '''
+    Loads gene expression data from 10x in sparse matrix format and returns a
+    Pandas dataframe
+    '''
+
+    import pandas as pd
+    from scipy import io
+    from scipy import sparse
+    from ast import literal_eval as make_tuple
+
+    # matrix
+    Matrix = io.mmread( inst_path + 'matrix.mtx')
+    mat = Matrix.todense()
+
+    # genes
+    filename = inst_path + 'genes.tsv'
+    f = open(filename, 'r')
+    lines = f.readlines()
+    f.close()
+
+    # # add unique id to all genes
+    # genes = []
+    # unique_id = 0
+    # for inst_line in lines:
+    #     inst_line = inst_line.strip().split()
+
+    #     if len(inst_line) > 1:
+    #       inst_gene = inst_line[1]
+    #     else:
+    #       inst_gene = inst_line[0]
+
+    #     genes.append(inst_gene + '_' + str(unique_id))
+    #     unique_id = unique_id + 1
+
+    # add unique id only to duplicate genes
+    ini_genes = []
+    for inst_line in lines:
+        inst_line = inst_line.strip().split()
+        if len(inst_line) > 1:
+          inst_gene = inst_line[1]
+        else:
+          inst_gene = inst_line[0]
+        ini_genes.append(inst_gene)
+
+    gene_name_count = pd.Series(ini_genes).value_counts()
+    duplicate_genes = gene_name_count[gene_name_count > 1].index.tolist()
+
+    dup_index = {}
+    genes = []
+    for inst_row in ini_genes:
+
+      # add index to non-unique genes
+      if inst_row in duplicate_genes:
+
+        # calc_non-unque index
+        if inst_row not in dup_index:
+          dup_index[inst_row] = 1
+        else:
+          dup_index[inst_row] = dup_index[inst_row] + 1
+
+        new_row = inst_row + '_' + str(dup_index[inst_row])
+
+      else:
+        new_row = inst_row
+
+      genes.append(new_row)
+
+    # barcodes
+    filename = inst_path + 'barcodes.tsv'
+    f = open(filename, 'r')
+    lines = f.readlines()
+    f.close()
+
+    cell_barcodes = []
+    for inst_bc in lines:
+        inst_bc = inst_bc.strip().split('\t')
+
+        # remove dash from barcodes if necessary
+        if '-' in inst_bc[0]:
+          inst_bc[0] = inst_bc[0].split('-')[0]
+
+        cell_barcodes.append(inst_bc[0])
+
+    # parse tuples if necessary
+    try:
+        cell_barcodes = [make_tuple(x) for x in cell_barcodes]
+    except:
+        pass
+
+    try:
+        genes = [make_tuple(x) for x in genes]
+    except:
+        pass
+
+    # make dataframe
+    df = pd.DataFrame(mat, index=genes, columns=cell_barcodes)
+
+    return df
 
 def plot_umi_levels(feature_data, feature_type='gex', logy=True, logx=False,
                     figsize=(10,5), min_umi=0, max_umi=1e8, zscore_features=False):
