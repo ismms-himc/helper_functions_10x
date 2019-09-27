@@ -30,7 +30,7 @@ This repo contains pivate HIMC data that is used for demonstrating and testing f
 This set of functions will be used to read and write single cell data between several commonly used and custom data formats. This section of this README will describe these files and some schemas for what we want to save and in what data formats we want to use.
 
 ## Metadata Overview
-This section outlines the metadata we would like to store for different entities (e.g. cells). For the time being we are thinking of storing this metadata as parquet files (with metadata type as column and entities as rows). We should also look into [Anndata](https://scanpy.readthedocs.io/en/stable/basic_usage.html#anndata) used by Scanpy.
+This section outlines the metadata we would like to store for different entities (e.g. cells). For the time being we are thinking of storing this metadata as separate parquet files (with metadata type as column and entities as rows). The advantage to this workflow is that we can add cell-level metadata as it becomes available (e.g. cell type prediction) without having to re-write the underlying data (e.g. GEX data). We should also look into [Anndata](https://scanpy.readthedocs.io/en/stable/basic_usage.html#anndata) used by Scanpy.
 
 Embedding cell metadata into the MTX file format could be done (by treating numeric metadata as a 'Custom' feature, but the same cannot be done for feature-based metadata (e.g. we would not want to have a metadata barcode). 
 
