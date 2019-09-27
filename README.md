@@ -13,3 +13,22 @@ This repo contains pivate HIMC data that is used for demonstrating and testing f
 
 # Single-Cell Data Read/Write
 This set of functions will be used to read and write single cell data between several commonly used and custom data formats. This section of this README will describe these files and some schemas for what we want to save and in what data formats we want to use.
+
+## Data Formats
+* Cell Ranger Version 2 Sparse Matrix MTX Format (uncompressed)
+    * barcodes.tsv
+    * genes.tsv
+    * matrix.mtx
+* Cell Ranger Version 3 Sparse Matrix MTX Format (compressed)
+    * barcodes.tsv.gz
+    * features.tsv.gz
+    * matrix.mtx.gz
+* Parquet Format
+    * gex.parquet
+    * adt.parquet
+    * hto.parquet
+    * meta_cell.parquet
+    * meta_gex.parquet
+    * meta_adt.parquet
+    * meta_hto.parquet
+ 
