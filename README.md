@@ -12,9 +12,12 @@ This repo will contain a script with functions that are used for 10x single cell
 # Data Flow Diagram
 
 ```
-MTX -> feature_data (sparse) -> df (dense) -> parquet 
-                                           -> CytoBank
-                                           -> MTX
+Disk             In-Memory                Disk
+----     ------------------------       ---------
+MTX  ->  feature_data  ->   df      ->   parquets    (-> Database)
+           (sparse)       (dense)   ->   MTX
+                                    ->   CytoBank
+                                    ->   Zarr
 ```
 
 # helper_functions_10x Roadmap
@@ -28,26 +31,40 @@ This set of functions will be used to read and write single cell data between se
 
 ## MetaData
 * cell_meta_data
-   * gex_umi_sum
-   * num_genes_meas   
-   * adt_umi_sum (if applicable) 
-   * hto_umi_sum (if applicable) 
-   * mito_gene_fraction
-   * t_cell_clnonotye (if applicable) 
-   * b_cell_clnonotye (if applicable) 
+
+  * Gene Expression Level Meta-data
+     * gex_umi_sum
+     * num_genes_meas   
+     * fraction_mito_umi
+     * sum_mito_umi
+     * mean_mito_umi (can be used in place of multiple genes)
+     * mean_ribo_umi (can be used in place of multiple genes)
+     
+  * Feature Level Meta-Data
+     * adt_umi_sum (if applicable) 
+     * hto_umi_sum (if applicable) 
+     * hto_first_vs_secont_highest_ratio (if applicable)
+     
+  * Cell Type Level Meta-Data
+     * t_cell_clnonotye (if applicable) 
+     * b_cell_clnonotye (if applicable) 
+     * cell_type_broad (if applicable)
+     * cell_type_narrow (if applicable)
+     * cell_state (if applicable)
    
 * gex_meta_data
    * ensemble ID (for the purpose of exporting to Cell Ranger format) 
    * freaction_of_cells_expressing (divide by total number of cells)
-   * avg_umi_level (across all cells)
+   * mean_umi (across all cells)
+   * var_umi (across all cells)
    
 * adt_meta_data
    * freaction_of_cells_expressing (divide by total number of cells)
-   * avg_umi_level (across all cells)   
+   * mean_umi_level (across all cells)   
    
 * hto_meta_data
    * freaction_of_cells_expressing (divide by total number of cells)   
-   * avg_umi_level (across all cells)   
+   * mean_umi_level (across all cells)   
    
 ## Data Formats
 * Cell Ranger Version 2 Sparse Matrix MTX Format (uncompressed, read-only format)
@@ -68,15 +85,4 @@ This set of functions will be used to read and write single cell data between se
     * meta_hto.parquet
     
 * CytoBank Format
-
-
-'der_gex_umi_sum' 
-'der_gex_umi_count' -> 
-
-# 'der_mito_umi_sum',\
-# 'der_mito_umi_count',\
-# 'der_mito_umi_prop',\
-# 'der_adt_umi_sum',\
-# 'der_hto_umi_sum',\
-# 'der_hto_1st_v_2nd']
-# 
+    * merge of top var gex (w/o ribo/mito)
