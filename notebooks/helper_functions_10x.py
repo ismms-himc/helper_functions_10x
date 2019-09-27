@@ -106,6 +106,8 @@ def load_crv3_feature_matrix(inst_path):
         ini_name_count = pd.Series(ini_names).value_counts()
         duplicate_names = ini_name_count[ini_name_count > 1].index.tolist()
 
+        print(duplicate_names)
+
         new_names = [x[1] if x[1] not in duplicate_names else x[1] + '_' + x[0] for x in feat_lines]
 
         # quick hack to clean up names
@@ -162,6 +164,9 @@ def load_crv2_gene_matrix(inst_path):
 
     gene_name_count = pd.Series(ini_genes).value_counts()
     duplicate_genes = gene_name_count[gene_name_count > 1].index.tolist()
+
+    print('dup genes')
+    print(duplicate_genes)
 
     dup_index = {}
     genes = []
