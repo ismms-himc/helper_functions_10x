@@ -1,11 +1,14 @@
 # helper_functions_10x
 This repo will contain a script with functions that are used for 10x single cell data. These functions include: 
 
-* Input/Output of sparse matrix format data (and other formats)
-* filtering sparse matrices
-* de-hashing samples
+* Input/Output of single cell data (e.g. CytoBank)
+* Filtering sparse matrices (e.g. GEX UMI)
+* De-hashing samples
+* Read/write from/to AWS S3
+* Visualize data for QC purposes
+* Generate cell and feature meta-data 
 
-# heler_functions_10x Roadmap
+# helper_functions_10x Roadmap
 Warning -- the `helper_functions_10x.py` script is currently a grab bag full of stuff, but will become more organized over time. This repo may eventually become a pip installable library or may (at least partially) become absorbed by [Clustergrammer2](https://github.com/ismms-himc/clustergrammer2). 
 
 ## Private Test Data
