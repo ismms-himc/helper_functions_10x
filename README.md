@@ -9,6 +9,14 @@ This repo will contain a script with functions that are used for 10x single cell
 * Generate cell and feature meta-data 
 * Harmonize TCR/BCR Clonotypes across lanes (treat as cell meta-data)
 
+# Data Flow Diagram
+
+```
+MTX -> feature_data (sparse) -> df (dense) -> parquet 
+                                           -> CytoBank
+                                           -> MTX
+```
+
 # helper_functions_10x Roadmap
 Warning -- the `helper_functions_10x.py` script is currently a grab bag full of stuff, but will become more organized over time. This repo may eventually become a pip installable library or may (at least partially) become absorbed by [Clustergrammer2](https://github.com/ismms-himc/clustergrammer2). 
 
@@ -29,6 +37,7 @@ This set of functions will be used to read and write single cell data between se
    * b_cell_clnonotye (if applicable) 
    
 * gex_meta_data
+   * ensemble ID (for the purpose of exporting to Cell Ranger format) 
    * freaction_of_cells_expressing (divide by total number of cells)
    * avg_umi_level (across all cells)
    
