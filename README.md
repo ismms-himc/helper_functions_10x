@@ -18,6 +18,28 @@ This repo contains pivate HIMC data that is used for demonstrating and testing f
 # Single-Cell Data Read/Write
 This set of functions will be used to read and write single cell data between several commonly used and custom data formats. This section of this README will describe these files and some schemas for what we want to save and in what data formats we want to use.
 
+## MetaData
+* cell_meta_data
+   * gex_umi_sum
+   * num_genes_meas   
+   * adt_umi_sum (if applicable) 
+   * hto_umi_sum (if applicable) 
+   * mito_gene_fraction
+   * t_cell_clnonotye (if applicable) 
+   * b_cell_clnonotye (if applicable) 
+   
+* gex_meta_data
+   * freaction_of_cells_expressing (divide by total number of cells)
+   * avg_umi_level (across all cells)
+   
+* adt_meta_data
+   * freaction_of_cells_expressing (divide by total number of cells)
+   * avg_umi_level (across all cells)   
+   
+* hto_meta_data
+   * freaction_of_cells_expressing (divide by total number of cells)   
+   * avg_umi_level (across all cells)   
+   
 ## Data Formats
 * Cell Ranger Version 2 Sparse Matrix MTX Format (uncompressed, read-only format)
     * barcodes.tsv
@@ -35,4 +57,17 @@ This set of functions will be used to read and write single cell data between se
     * meta_gex.parquet
     * meta_adt.parquet
     * meta_hto.parquet
- 
+    
+* CytoBank Format
+
+
+'der_gex_umi_sum' 
+'der_gex_umi_count' -> 
+
+# 'der_mito_umi_sum',\
+# 'der_mito_umi_count',\
+# 'der_mito_umi_prop',\
+# 'der_adt_umi_sum',\
+# 'der_hto_umi_sum',\
+# 'der_hto_1st_v_2nd']
+# 
