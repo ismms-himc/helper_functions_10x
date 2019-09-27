@@ -7,6 +7,7 @@ This repo will contain a script with functions that are used for 10x single cell
 * Read/write from/to AWS S3
 * Visualize data for QC purposes
 * Generate cell and feature meta-data 
+* Harmonize TCR/BCR Clonotypes across lanes (treat as cell meta-data)
 
 # helper_functions_10x Roadmap
 Warning -- the `helper_functions_10x.py` script is currently a grab bag full of stuff, but will become more organized over time. This repo may eventually become a pip installable library or may (at least partially) become absorbed by [Clustergrammer2](https://github.com/ismms-himc/clustergrammer2). 
