@@ -18,15 +18,15 @@ This repo contains pivate HIMC data that is used for demonstrating and testing f
 This set of functions will be used to read and write single cell data between several commonly used and custom data formats. This section of this README will describe these files and some schemas for what we want to save and in what data formats we want to use.
 
 ## Data Formats
-* Cell Ranger Version 2 Sparse Matrix MTX Format (uncompressed)
+* Cell Ranger Version 2 Sparse Matrix MTX Format (uncompressed, read-only format)
     * barcodes.tsv
     * genes.tsv
     * matrix.mtx
-* Cell Ranger Version 3 Sparse Matrix MTX Format (compressed)
+* Cell Ranger Version 3 Sparse Matrix MTX Format (compressed, read and write format)
     * barcodes.tsv.gz
     * features.tsv.gz
     * matrix.mtx.gz
-* Parquet Format
+* Parquet Format (read and write format)
     * gex.parquet
     * adt.parquet
     * hto.parquet
