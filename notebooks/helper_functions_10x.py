@@ -1,4 +1,4 @@
-# Version: 0.1.0
+# Version: 0.2.0
 # This is a set of scripts that are used in processing 10x single cell data
 
 import gzip
@@ -12,7 +12,7 @@ import os
 import matplotlib.pyplot as plt
 
 def get_version():
-    print('0.1.0')
+    print('0.2.0', 'CellRanger V2 V3 harmonized reading')
 
 def make_dir(directory):
     if not os.path.exists(directory):
@@ -129,64 +129,26 @@ def load_crv2_gene_matrix(inst_path):
     from ast import literal_eval as make_tuple
 
     # matrix
-    Matrix = io.mmread( inst_path + 'matrix.mtx')
-    mat = Matrix.todense()
+    mat = io.mmread( inst_path + 'matrix.mtx').tocsc()
+
 
     # genes
     filename = inst_path + 'genes.tsv'
     f = open(filename, 'r')
-    lines = f.readlines()
+    lines_genes = f.readlines()
     f.close()
 
-    # # add unique id to all genes
-    # genes = []
-    # unique_id = 0
-    # for inst_line in lines:
-    #     inst_line = inst_line.strip().split()
+    # make unique gene names
+    #############################
+    gene_list = [x.strip().split('\t') for x in lines_genes]
 
-    #     if len(inst_line) > 1:
-    #       inst_gene = inst_line[1]
-    #     else:
-    #       inst_gene = inst_line[0]
+    # find non-unique initial gene names
+    ini_names = [x[1] for x in gene_list]
 
-    #     genes.append(inst_gene + '_' + str(unique_id))
-    #     unique_id = unique_id + 1
+    ini_name_count = pd.Series(ini_names).value_counts()
+    duplicate_names = ini_name_count[ini_name_count > 1].index.tolist()
+    genes = [x[1] if x[1] not in duplicate_names else x[1] + '_' + x[0] for x in gene_list]
 
-    # add unique id only to duplicate genes
-    ini_genes = []
-    for inst_line in lines:
-        inst_line = inst_line.strip().split()
-        if len(inst_line) > 1:
-          inst_gene = inst_line[1]
-        else:
-          inst_gene = inst_line[0]
-        ini_genes.append(inst_gene)
-
-    gene_name_count = pd.Series(ini_genes).value_counts()
-    duplicate_genes = gene_name_count[gene_name_count > 1].index.tolist()
-
-    print('dup genes')
-    print(duplicate_genes)
-
-    dup_index = {}
-    genes = []
-    for inst_row in ini_genes:
-
-      # add index to non-unique genes
-      if inst_row in duplicate_genes:
-
-        # calc_non-unque index
-        if inst_row not in dup_index:
-          dup_index[inst_row] = 1
-        else:
-          dup_index[inst_row] = dup_index[inst_row] + 1
-
-        new_row = inst_row + '_' + str(dup_index[inst_row])
-
-      else:
-        new_row = inst_row
-
-      genes.append(new_row)
 
     # barcodes
     filename = inst_path + 'barcodes.tsv'
@@ -215,10 +177,14 @@ def load_crv2_gene_matrix(inst_path):
     except:
         pass
 
-    # make dataframe
-    df = pd.DataFrame(mat, index=genes, columns=cell_barcodes)
+    # generate feature_data
+    feature_data = {}
+    feature_data['gex'] = {}
+    feature_data['gex']['features'] = genes
+    feature_data['gex']['barcodes'] = cell_barcodes
+    feature_data['gex']['mat'] = mat
 
-    return df
+    return feature_data
 
 def plot_umi_levels(feature_data, feature_type='gex', logy=True, logx=False,
                     figsize=(10,5), min_umi=0, max_umi=1e8, zscore_features=False):
