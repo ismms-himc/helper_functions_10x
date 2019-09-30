@@ -440,7 +440,9 @@ def calc_first_vs_second(df, alpha=0.25, s=10, hto_range=7):
                              x='first highest HTO', y='second highest HTO',
                              ylim=(0,hto_range), xlim=(0,hto_range), alpha=alpha, s=s)
 
-    return df_comp
+    ser_ratio = df_comp.loc['first highest HTO']/df_comp.loc['second highest HTO']
+    
+    return df_comp, ser_ratio
 
 
 def filter_ribo_mito_from_gex(df_ini):
