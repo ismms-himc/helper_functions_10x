@@ -50,12 +50,14 @@ Embedding cell metadata into the MTX file format could be done (by treating nume
      * hto_first_vs_secont_highest_ratio (if applicable)
      
   * Cell Type Level Meta-Data
-     * t_cell_clnonotye (if applicable) 
-     * b_cell_clnonotye (if applicable) 
      * cell_type_broad (if applicable)
      * cell_type_narrow (if applicable)
-     * cell_state (if applicable)
-   
+     * cell_state (if applicable)  
+     * t_cell_clnonotye (if applicable) 
+     * b_cell_clnonotye (if applicable) 
+     * Subject (if applicable)
+     * Sample-Metadata (e.g. timepoint, if applicable)
+
 * gex_meta_data
    * ensemble ID (for the purpose of exporting to Cell Ranger format) 
    * freaction_of_cells_expressing (divide by total number of cells)
