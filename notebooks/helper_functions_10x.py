@@ -405,14 +405,16 @@ def assign_htos(df_hto_ini, thresh_levels):
 
 
     # generate cell type dict
-    ct_dict = {}
+    ct_type = {}
+    ct_max_hto = {}
     print('\noverview')
     for inst_type in ct_list:
         print(inst_type, ': ', len(ct_list[inst_type]))
         for inst_cell in ct_list[inst_type]:
-            ct_dict[inst_cell] = inst_type
+            ct_type[inst_cell] = inst_type
+            ct_max_hto[inst_cell] = df_hto[inst_cell].idxmax()
 
-    return hto_key, ct_list, ct_dict
+    return hto_key, ct_list, ct_type, ct_max_hto
 
 def calc_first_vs_second(df, alpha=0.25, s=10, hto_range=7, inf_replace=5):
 
@@ -511,10 +513,10 @@ def add_cats_from_meta(barcodes, df_meta, add_cat_list):
     return new_cols
 
 
-def make_dehash_meta_cell(df, ct_list, hto_key, sn_ratio_all, sn_threshold):
+def make_dehash_meta_cell(df, ct_list, hto_names, ct_max_hto, sn_ratio_all, sn_singlet=1, sn_multiplet=1, sn_debris=1):
 
     inst_list = {}
-    for inst_type in ['sample', 'hto', 'sn-ratio']:
+    for inst_type in ['sample', 'hto-assigned', 'hto-max', 'sn-ratio']:
         inst_list[inst_type] = []
 
     rows = df['gex'].columns.tolist()
@@ -522,52 +524,55 @@ def make_dehash_meta_cell(df, ct_list, hto_key, sn_ratio_all, sn_threshold):
 
         hto_cat = ''
         sample_cat = ''
+        max_hto = ct_max_hto[inst_col]
+
+        # signal-to-noise threshold
+        inst_sn = sn_ratio_all[inst_col]
 
         # singlet
         if inst_col in ct_list['singlets']:
 
-            # check which hto it is positive for
-            for inst_hto in hto_key:
-                if inst_col in hto_key[inst_hto]:
+            if inst_sn >= sn_singlet:
+                hto_cat = max_hto
+                sample_cat = hto_names[hto_cat]
 
-                    # signal-to-noise threshold
-                    inst_sn = sn_ratio_all[inst_col]
-                    if inst_sn >= sn_threshold:
-
-                        # assign hto and sample
-                        hto_cat = inst_hto
-                        sample_cat = hto_names[inst_hto]
-                        #print('singlet', inst_col, inst_hto, sample_cat)
-
-                    # deemed a doublet based on signal-to-noise threshold
-                    else:
-                        hto_cat = 'multiplet-sn-ratio'
-                        sample_cat = 'N.A.'
-                        #print('multiplet-sn-ratio', inst_col, inst_hto, inst_sn.round(2))
+            # deemed a doublet based on signal-to-noise threshold
+            else:
+                hto_cat = 'multiplet-sn-ratio'
+                sample_cat = 'N.A.'
 
         elif inst_col in ct_list['debris']:
-            hto_cat = 'debris'
-            sample_cat = 'N.A.'
-            # print('debris', inst_col)
+
+            if inst_sn >= sn_debris:
+                hto_cat = max_hto
+                sample_cat = hto_names[hto_cat]
+            else:
+                hto_cat = 'debris'
+                sample_cat = 'N.A.'
 
         elif inst_col in ct_list['multiplets']:
-            hto_cat = 'debris'
-            sample_cat = 'N.A.'
-            # print('multiplet', inst_col)
+
+            # rescue multiplet to singlet if above signal-to-noise threshold
+            if inst_sn >= sn_multiplet:
+                hto_cat = max_hto
+                sample_cat = hto_names[hto_cat]
+            else:
+                hto_cat = 'multiplet'
+                sample_cat = 'N.A.'
+
 
         # save to lists
-        inst_list['hto'].append(hto_cat)
+        inst_list['hto-assigned'].append(hto_cat)
+        inst_list['hto-max'].append(max_hto)
         inst_list['sample'].append(sample_cat)
         inst_list['sn-ratio'].append(sn_ratio_all[inst_col])
 
     ser_list = []
-    for inst_type in ['sample', 'hto', 'sn-ratio']:
+    for inst_type in ['sample', 'hto-assigned', 'hto-max', 'sn-ratio']:
         inst_ser = pd.Series(inst_list[inst_type], name=inst_type, index=rows)
         ser_list.append(inst_ser)
 
-    # add gex umi level
-
-
     df_meta = pd.concat(ser_list, axis=1)
+
 
     return df_meta
