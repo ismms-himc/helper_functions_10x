@@ -1,4 +1,4 @@
-# Version: 0.2.0
+# Version: 0.3.0
 # This is a set of scripts that are used in processing 10x single cell data
 
 import gzip
@@ -12,7 +12,7 @@ import os
 import matplotlib.pyplot as plt
 
 def get_version():
-    print('0.2.0', 'CellRanger V2 V3 harmonized reading')
+    print('0.3.0', 'De-hash viz and meta-data')
 
 def make_dir(directory):
     if not os.path.exists(directory):
@@ -105,8 +105,6 @@ def load_crv3_feature_matrix(inst_path):
 
         ini_name_count = pd.Series(ini_names).value_counts()
         duplicate_names = ini_name_count[ini_name_count > 1].index.tolist()
-
-        print(duplicate_names)
 
         new_names = [x[1] if x[1] not in duplicate_names else x[1] + '_' + x[0] for x in feat_lines]
 
@@ -416,16 +414,17 @@ def assign_htos(df_hto_ini, thresh_levels):
 
     return hto_key, ct_list, ct_dict
 
-def calc_first_vs_second(df, alpha=0.25, s=10, hto_range=7):
+def calc_first_vs_second(df, alpha=0.25, s=10, hto_range=7, inf_replace=5):
+
+    fig, axes = plt.subplots(nrows=1, ncols=2)
+
     list_first = []
     list_second = []
     list_cells = []
     for inst_cell in df.columns.tolist():
         inst_ser = df[inst_cell].sort_values(ascending=False)
-        # print(inst_ser)
         inst_first  = inst_ser.get_values()[0]
         inst_second = inst_ser.get_values()[1]
-        # print(inst_first, inst_second)
 
         list_first.append(inst_first)
         list_second.append(inst_second)
@@ -438,12 +437,16 @@ def calc_first_vs_second(df, alpha=0.25, s=10, hto_range=7):
 
     df_comp.transpose().plot(kind='scatter', figsize=(5,5),
                              x='first highest HTO', y='second highest HTO',
-                             ylim=(0,hto_range), xlim=(0,hto_range), alpha=alpha, s=s)
+                             ylim=(0,hto_range), xlim=(0,hto_range), alpha=alpha, s=s, ax=axes[0])
 
-    ser_ratio = df_comp.loc['first highest HTO']/df_comp.loc['second highest HTO']
-    
-    return df_comp, ser_ratio
+    sn_ratio = np.log2(df_comp.loc['first highest HTO']/df_comp.loc['second highest HTO'])
 
+
+    # replace positive infinities with set value
+    sn_ratio = sn_ratio.replace(np.Inf, inf_replace)
+    sn_ratio.hist(bins=100, ax=axes[1], figsize=(15,7))
+
+    return df_comp, sn_ratio
 
 def filter_ribo_mito_from_gex(df_ini):
 
@@ -506,3 +509,65 @@ def add_cats_from_meta(barcodes, df_meta, add_cat_list):
     new_cols = [tuple([x] + y) for x,y in zip(barcodes, list_cat_titles)]
 
     return new_cols
+
+
+def make_dehash_meta_cell(df, ct_list, hto_key, sn_ratio_all, sn_threshold):
+
+    inst_list = {}
+    for inst_type in ['sample', 'hto', 'sn-ratio']:
+        inst_list[inst_type] = []
+
+    rows = df['gex'].columns.tolist()
+    for inst_col in df['gex'].columns.tolist():
+
+        hto_cat = ''
+        sample_cat = ''
+
+        # singlet
+        if inst_col in ct_list['singlets']:
+
+            # check which hto it is positive for
+            for inst_hto in hto_key:
+                if inst_col in hto_key[inst_hto]:
+
+                    # signal-to-noise threshold
+                    inst_sn = sn_ratio_all[inst_col]
+                    if inst_sn >= sn_threshold:
+
+                        # assign hto and sample
+                        hto_cat = inst_hto
+                        sample_cat = hto_names[inst_hto]
+                        #print('singlet', inst_col, inst_hto, sample_cat)
+
+                    # deemed a doublet based on signal-to-noise threshold
+                    else:
+                        hto_cat = 'multiplet-sn-ratio'
+                        sample_cat = 'N.A.'
+                        #print('multiplet-sn-ratio', inst_col, inst_hto, inst_sn.round(2))
+
+        elif inst_col in ct_list['debris']:
+            hto_cat = 'debris'
+            sample_cat = 'N.A.'
+            # print('debris', inst_col)
+
+        elif inst_col in ct_list['multiplets']:
+            hto_cat = 'debris'
+            sample_cat = 'N.A.'
+            # print('multiplet', inst_col)
+
+        # save to lists
+        inst_list['hto'].append(hto_cat)
+        inst_list['sample'].append(sample_cat)
+        inst_list['sn-ratio'].append(sn_ratio_all[inst_col])
+
+    ser_list = []
+    for inst_type in ['sample', 'hto', 'sn-ratio']:
+        inst_ser = pd.Series(inst_list[inst_type], name=inst_type, index=rows)
+        ser_list.append(inst_ser)
+
+    # add gex umi level
+
+
+    df_meta = pd.concat(ser_list, axis=1)
+
+    return df_meta
