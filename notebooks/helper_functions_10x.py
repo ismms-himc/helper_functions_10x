@@ -731,7 +731,19 @@ def make_dehash_meta_cell(df, ct_list, hto_names, ct_max_hto, sn_ratio_all, sn_s
 
     return df_meta
 
-def make_cyto_export(df):
+def make_cyto_export(df, num_var_genes=500):
+
+    keep_meta = ['hto-umi-sum',
+                 'gex-umi-sum',
+                 'adt-umi-sum',
+                 'num_expressed_genes',
+                 'hto-log2-sn',
+                 'mito-fraction-umi',
+                 'Ribosomal-Avg',
+                 'Mitochondrial-Avg',
+                 'gex-umi-sum-no-ribo-mito',
+                 'num_expressed_genes_no-ribo-mito']
+
     df_cyto = None
 
     for inst_type in ['gex', 'adt', 'hto', 'meta_cell']:
@@ -746,7 +758,7 @@ def make_cyto_export(df):
             inst_df.index = [inst_type.upper() + '_' + x for x in inst_df.index.tolist()]
 
         else:
-            inst_df = inst_df.transpose()
+            inst_df = inst_df[keep_meta].transpose()
             inst_df.index = ['DER_' + x for x in inst_df.index.tolist()]
 
         print(inst_type, inst_df.shape)
@@ -768,7 +780,6 @@ def make_cyto_export(df):
     df['cyto-export'] = df_export
 
     return df
-
 
 # # alternate lambda function
 # def sum_field(dataframe, field):
