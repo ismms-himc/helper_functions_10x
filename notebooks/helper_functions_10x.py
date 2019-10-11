@@ -739,8 +739,6 @@ def make_cyto_export(df, num_var_genes=500):
                  'num_expressed_genes',
                  'hto-log2-sn',
                  'mito-fraction-umi',
-                 'Ribosomal-Avg',
-                 'Mitochondrial-Avg',
                  'gex-umi-sum-no-ribo-mito',
                  'num_expressed_genes_no-ribo-mito']
 
