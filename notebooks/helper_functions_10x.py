@@ -347,7 +347,7 @@ def calc_mito_gene_umi_fraction(df, plot_mito=False):
 
     return mito_fraction
 
-def plot_hto(df_hto, thresh_levels, hto_name, max_plot_hto=7, thresh=1, ylim =100):
+def set_hto_thresh(df_hto, thresh_levels, hto_name, max_plot_hto=7, thresh=1, ylim =100):
     ser_hto = df_hto.loc[hto_name]
 
     n, bins, patches = plt.hist(ser_hto, bins=100, range=(0, max_plot_hto))
@@ -416,7 +416,7 @@ def assign_htos(df_hto_ini, thresh_levels):
 
     return hto_key, ct_list, ct_type, ct_max_hto
 
-def calc_signal_vs_noise(df, alpha=0.25, s=10, hto_range=7, inf_replace=5):
+def plot_signal_vs_noise(df, alpha=0.25, s=10, hto_range=7, inf_replace=5):
 
     fig, axes = plt.subplots(nrows=1, ncols=2)
 
@@ -576,3 +576,16 @@ def make_dehash_meta_cell(df, ct_list, hto_names, ct_max_hto, sn_ratio_all, sn_s
 
 
     return df_meta
+
+
+# # alternate lambda function
+# def sum_field(dataframe, field):
+#     return dataframe[field].sum(axis=0)
+
+# list_ser_functions = {**{inst_type+'-umi-sum':(lambda y,inst_type=inst_type: sum_field(y,inst_type))\
+#                          for inst_type in ['gex', 'adt', 'hto']},
+#                      }
+
+# for key,value in list_ser_functions.items():
+#     list_ser.append(value(df))
+# df['meta_cell'] = pd.DataFrame(data=list_ser).transpose()
