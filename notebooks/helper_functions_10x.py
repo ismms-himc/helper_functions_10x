@@ -416,7 +416,7 @@ def assign_htos(df_hto_ini, thresh_levels):
 
     return hto_key, ct_list, ct_type, ct_max_hto
 
-def calc_first_vs_second(df, alpha=0.25, s=10, hto_range=7, inf_replace=5):
+def calc_signal_vs_noise(df, alpha=0.25, s=10, hto_range=7, inf_replace=5):
 
     fig, axes = plt.subplots(nrows=1, ncols=2)
 
