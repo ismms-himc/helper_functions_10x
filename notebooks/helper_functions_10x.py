@@ -325,29 +325,50 @@ def check_feature_data_size(feature_data):
         print(len(feature_data[inst_feat]['features']), len(feature_data[inst_feat]['barcodes']))
         print(feature_data[inst_feat]['mat'].shape, '\n')
 
-def calc_mito_gene_umi_fraction(df, plot_mito=False):
+def calc_mito_gene_umi_fraction(df_gex, meta_cell, plot_mito=False, mito_thresh=0.9):
 
     # Removing Mitochondrial Genes
     list_mito_genes = ['MTRNR2L11', 'MTRF1', 'MTRNR2L12', 'MTRNR2L13', 'MTRF1L', 'MTRNR2L6', 'MTRNR2L7',
                     'MTRNR2L10', 'MTRNR2L8', 'MTRNR2L5', 'MTRNR2L1', 'MTRNR2L3', 'MTRNR2L4']
 
 
-    all_genes = df.index.tolist()
+    all_genes = df_gex.index.tolist()
     mito_genes = [x for x in all_genes if 'MT-' == x[:3] or
                  x.split('_')[0] in list_mito_genes]
 
 
-    mito_sum = df.loc[mito_genes].sum(axis=0)
-    gex_sum = df.sum(axis=0)
+    mito_sum = df_gex.loc[mito_genes].sum(axis=0)
+    gex_sum = df_gex.sum(axis=0)
 
     mito_fraction = mito_sum/gex_sum
 
     if plot_mito:
         mito_fraction.sort_values(ascending=False).plot()
 
-    return mito_fraction
+    list_mito_dead = []
+    cells = mito_fraction.index.tolist()
+    for inst_cell in cells:
+        inst_mito = mito_fraction[inst_cell]
+        if inst_mito >= mito_thresh:
+            inst_state = 'dead-cell'
+        else:
+            inst_state = 'live-cell'
+        list_mito_dead.append(inst_state)
 
-def set_hto_thresh(df_hto, thresh_levels, hto_name, max_plot_hto=7, thresh=1, ylim =100):
+    ser_dead = pd.Series(list_mito_dead, index=cells)
+
+    meta_cell['mito-fraction-umi'] = mito_fraction
+    meta_cell['dead-cell-mito'] = ser_dead
+
+    return meta_cell
+
+def set_hto_thresh(df_hto, meta_hto, hto_name, max_plot_hto=7, thresh=1, ylim =100):
+
+    if 'hto-threshold' not in meta_hto.columns.tolist():
+        ser_thresh = pd.Series(np.nan, index=df['meta_hto'].index)
+        meta_hto['hto-threshold'] = ser_thresh
+
+
     ser_hto = df_hto.loc[hto_name]
 
     n, bins, patches = plt.hist(ser_hto, bins=100, range=(0, max_plot_hto))
@@ -363,22 +384,44 @@ def set_hto_thresh(df_hto, thresh_levels, hto_name, max_plot_hto=7, thresh=1, yl
     for patch, color in zip(patches, colors):
         patch.set_facecolor(color)
 
-    thresh_levels[hto_name] = thresh
+    meta_hto.loc[hto_name, 'hto-threshold'] = thresh
     plt.ylim((0,100))
 
-def assign_htos(df_hto_ini, thresh_levels):
-    hto_key = {}
+def ini_meta_cell(df):
+    cells = df['gex'].columns.tolist()
+    list_ser = []
+
+    # look for available data types
+    found_types = list(set(['gex', 'adt', 'hto']).intersection(df.keys()))
+    for inst_type in found_types:
+
+        # calc umi sum
+        inst_ser = df[inst_type].sum(axis=0)
+        inst_ser.name = inst_type + '-umi-sum'
+
+        list_ser.append(inst_ser)
+
+    df['meta_cell'] = pd.DataFrame(data=list_ser).transpose()
+
+    df_gex = deepcopy(df['gex'])
+    df_gex[df_gex >= 1] = 1
+    ser_gene_num = df_gex.sum(axis=0)
+    df['meta_cell']['num_expressed_genes'] = ser_gene_num
+
+    return df
+
+def assign_htos(df_hto_ini, meta_hto, meta_cell, sn_thresh):
+
     ser_list = []
     df_hto = deepcopy(df_hto_ini)
 
     for inst_row in df_hto.index.tolist():
 
         # get data for a HTO
-        inst_ser = df_hto.loc[inst_row]
+        inst_ser = deepcopy(df_hto.loc[inst_row])
 
         # load threshold level for this HTO
-        inst_thresh = thresh_levels[inst_row]
-        print(inst_row, 'thresh level: ', inst_thresh)
+        inst_thresh = meta_hto.loc[inst_row, 'hto-threshold']
 
         # binarize HTO values about threshold
         inst_ser[inst_ser < inst_thresh] = 0
@@ -389,8 +432,6 @@ def assign_htos(df_hto_ini, thresh_levels):
 
         # find cells that are positive for this HTO
         pos_hto = inst_ser[inst_ser==1].index.tolist()
-        hto_key[inst_row] = pos_hto
-        print('num hto pos: ', len(hto_key[inst_row]))
 
 
     # generate binarized dataframe
@@ -399,22 +440,96 @@ def assign_htos(df_hto_ini, thresh_levels):
     # find singlets
     ser_sum = df_binary.sum(axis=0)
     ct_list = {}
-    ct_list['debris']     = ser_sum[ser_sum == 0].index.tolist()
-    ct_list['singlets']   = ser_sum[ser_sum == 1].index.tolist()
-    ct_list['multiplets'] = ser_sum[ser_sum > 1].index.tolist()
+    ct_list['debris']    = ser_sum[ser_sum == 0].index.tolist()
+    ct_list['singlet']   = ser_sum[ser_sum == 1].index.tolist()
+    ct_list['multiplet'] = ser_sum[ser_sum > 1].index.tolist()
 
+    # initialize dehash-thresh
+    if 'dehash-thresh' not in meta_cell.columns.tolist():
+        ser_type = pd.Series(np.nan, index=df['meta_cell'].index)
+        meta_cell['dehash-thresh'] = ser_type
 
-    # generate cell type dict
-    ct_type = {}
-    ct_max_hto = {}
-    print('\noverview')
+    # save dehash-thresh
     for inst_type in ct_list:
-        print(inst_type, ': ', len(ct_list[inst_type]))
-        for inst_cell in ct_list[inst_type]:
-            ct_type[inst_cell] = inst_type
-            ct_max_hto[inst_cell] = df_hto[inst_cell].idxmax()
+        meta_cell.loc[ct_list[inst_type], 'dehash-thresh'] = inst_type
 
-    return hto_key, ct_list, ct_type, ct_max_hto
+    # find the highest hto
+    ser_max_hto = df_hto.idxmax(axis=0)
+    meta_cell['hto-max'] = ser_max_hto
+
+    # calc signal vs noise
+    list_first = []
+    list_second = []
+    list_cells = []
+
+    for inst_cell in df_hto.columns.tolist():
+        inst_ser = df_hto[inst_cell].sort_values(ascending=False)
+        inst_first  = inst_ser.get_values()[0]
+        inst_second = inst_ser.get_values()[1]
+
+        list_first.append(inst_first)
+        list_second.append(inst_second)
+        list_cells.append(inst_cell)
+
+    ser_first  = pd.Series(data=list_first,  index=list_cells, name='first highest HTO')
+    ser_second = pd.Series(data=list_second, index=list_cells, name='second highest HTO')
+
+    df_comp = pd.concat([ser_first, ser_second], axis=1).transpose()
+
+    sn_ratio = np.log2(df_comp.loc['first highest HTO']/df_comp.loc['second highest HTO'])
+
+    # save to metadata
+    meta_cell['hto-log2-sn'] = sn_ratio
+
+    # assign tentative sample
+    list_samples = []
+    for inst_cell in meta_cell.index.tolist():
+
+        inst_type = meta_cell.loc[inst_cell, 'dehash-thresh']
+
+        if inst_type == 'singlet':
+            inst_hto = meta_cell.loc[inst_cell, 'hto-max']
+            inst_sample = meta_hto.loc[inst_hto]['Sample']
+        else:
+            inst_sample = 'N.A.'
+
+        list_samples.append(inst_sample)
+
+    ser_sample = pd.Series(list_samples, index=meta_cell.index.tolist())
+    meta_cell['Sample-thresh'] = ser_sample
+
+    # signal-to-noise adjustment
+    cells = meta_cell.index.tolist()
+    for inst_cell in cells:
+        inst_type = meta_cell.loc[inst_cell, 'dehash-thresh']
+        inst_sn = meta_cell.loc[inst_cell, 'hto-log2-sn']
+        inst_max_hto = meta_cell.loc[inst_cell, 'hto-max']
+
+        # change singlet to multiplet if low sn
+        if inst_type == 'singlet':
+            if inst_sn < sn_thresh['singlets']:
+                # convert to multiplet
+                meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'multiplet'
+                meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = 'N.A.'
+            else:
+                meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'singlet'
+                meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = meta_hto.loc[inst_max_hto]['Sample']
+        elif inst_type == 'debris':
+            if inst_sn >= sn_thresh['debris']:
+                meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'singlet'
+                meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = meta_hto.loc[inst_max_hto]['Sample']
+            else:
+                meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'debris'
+                meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = 'N.A.'
+        elif inst_type == 'multiplet':
+            if inst_sn >= sn_thresh['multiplets']:
+                meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'singlet'
+                meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = meta_hto.loc[inst_max_hto]['Sample']
+            else:
+                meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'multiplet'
+                meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = 'N.A.'
+
+    return meta_cell
 
 def plot_signal_vs_noise(df, alpha=0.25, s=10, hto_range=7, inf_replace=5):
 
@@ -450,7 +565,7 @@ def plot_signal_vs_noise(df, alpha=0.25, s=10, hto_range=7, inf_replace=5):
 
     return df_comp, sn_ratio
 
-def filter_ribo_mito_from_gex(df_ini):
+def filter_ribo_mito_from_gex(df_ini, meta_cell):
 
     df = deepcopy(df_ini)
     all_genes = df.index.tolist()
@@ -486,12 +601,12 @@ def filter_ribo_mito_from_gex(df_ini):
 
     df = df.loc[keep_genes]
 
-
     # calculate average ribo gene expression
-    df_meta = pd.concat([ser_ribo, ser_mito], axis=1).transpose()
+    df_meta = pd.concat([ser_ribo, ser_mito], axis=1)
 
+    meta_cell = pd.concat([meta_cell, df_meta], axis=1)
 
-    return df, df_meta
+    return df, meta_cell
 
 def add_cats_from_meta(barcodes, df_meta, add_cat_list):
     '''
