@@ -731,6 +731,44 @@ def make_dehash_meta_cell(df, ct_list, hto_names, ct_max_hto, sn_ratio_all, sn_s
 
     return df_meta
 
+def make_cyto_export(df):
+    df_cyto = None
+
+    for inst_type in ['gex', 'adt', 'hto', 'meta_cell']:
+        inst_df = deepcopy(df[inst_type])
+
+        # filter for top var genes
+        if inst_type == 'gex':
+            keep_var_genes = inst_df.var(axis=1).sort_values(ascending=False).index.tolist()[:num_var_genes]
+            inst_df = inst_df.loc[keep_var_genes]
+
+        if 'meta' not in inst_type:
+            inst_df.index = [inst_type.upper() + '_' + x for x in inst_df.index.tolist()]
+
+        else:
+            inst_df = inst_df.transpose()
+            inst_df.index = ['DER_' + x for x in inst_df.index.tolist()]
+
+        print(inst_type, inst_df.shape)
+
+        if df_cyto is None:
+            df_cyto = inst_df
+        else:
+            df_cyto = df_cyto.append(inst_df)
+
+    df_export = df_cyto.transpose()
+
+    cells = df_export.index.tolist()
+    index_cells = [str(x/100) for x in range(len(cells))]
+    df_export.index = index_cells
+
+    ser_index = pd.Series(data=index_cells, index=cells)
+    df['meta_cell']['Cytobank-Index'] = ser_index
+
+    df['cyto-export'] = df_export
+
+    return df
+
 
 # # alternate lambda function
 # def sum_field(dataframe, field):
