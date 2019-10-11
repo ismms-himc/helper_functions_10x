@@ -410,6 +410,45 @@ def ini_meta_cell(df):
 
     return df
 
+def meta_cell_gex_wo_mito_ribo(df_gex_ini, meta_cell):
+
+    df_gex = deepcopy(df_gex_ini)
+
+    # calc umi sum
+    ser_umi_sum = df_gex.sum(axis=0)
+
+    meta_cell['gex-umi-sum-no-ribo-mito'] = ser_umi_sum
+
+    # count number of measured genes
+
+    df_gex[df_gex >= 1] = 1
+    ser_gene_num = df_gex.sum(axis=0)
+
+    meta_cell['num_expressed_genes_no-ribo-mito'] = ser_gene_num
+
+    return meta_cell
+
+def ini_meta_gene(df_gex_ini):
+
+    df_gex = deepcopy(df_gex_ini)
+
+    # Mean UMI
+    ser_gene_mean = df_gex.mean(axis=1)
+    ser_gene_mean.name = 'mean'
+
+    # Variance UMI
+    ser_gene_var = df_gex.mean(axis=1)
+    ser_gene_var.name = 'variance'
+
+    # fraction of cells measured
+    df_gex[df_gex >= 1] = 1
+    ser_gene_meas = df_gex.sum(axis=1)/df_gex.shape[1]
+    ser_gene_meas.name = 'fraction of cells measured'
+
+    meta_gene = pd.concat([ser_gene_mean, ser_gene_var, ser_gene_meas], axis=1)
+
+    return meta_gene
+
 def assign_htos(df_hto_ini, meta_hto, meta_cell, sn_thresh):
 
     ser_list = []
