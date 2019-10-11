@@ -365,7 +365,7 @@ def calc_mito_gene_umi_fraction(df_gex, meta_cell, plot_mito=False, mito_thresh=
 def set_hto_thresh(df_hto, meta_hto, hto_name, max_plot_hto=7, thresh=1, ylim =100):
 
     if 'hto-threshold' not in meta_hto.columns.tolist():
-        ser_thresh = pd.Series(np.nan, index=df['meta_hto'].index)
+        ser_thresh = pd.Series(np.nan, index=meta_hto.index)
         meta_hto['hto-threshold'] = ser_thresh
 
 
@@ -446,7 +446,7 @@ def assign_htos(df_hto_ini, meta_hto, meta_cell, sn_thresh):
 
     # initialize dehash-thresh
     if 'dehash-thresh' not in meta_cell.columns.tolist():
-        ser_type = pd.Series(np.nan, index=df['meta_cell'].index)
+        ser_type = pd.Series(np.nan, index=meta_cell.index)
         meta_cell['dehash-thresh'] = ser_type
 
     # save dehash-thresh
