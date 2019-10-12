@@ -1,4 +1,4 @@
-# Version: 0.3.0
+# Version: 0.4.0
 # This is a set of scripts that are used in processing 10x single cell data
 
 import gzip
@@ -12,7 +12,7 @@ import os
 import matplotlib.pyplot as plt
 
 def get_version():
-    print('0.3.0', 'De-hash viz and meta-data')
+    print('0.4.0', 'cytobank export, improved dehash api')
 
 def make_dir(directory):
     if not os.path.exists(directory):
