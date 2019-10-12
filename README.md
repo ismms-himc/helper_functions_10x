@@ -1,4 +1,4 @@
-# helper_functions_10x
+# himc_helper_functions
 This repo will contain a script with functions that are used for 10x single cell data. These functions include:
 
 * Input/Output of single cell data (e.g. CytoBank)
@@ -20,8 +20,8 @@ MTX  ->  feature_data  ->   df      ->   parquets    (-> Database)
                                     ->   Zarr
 ```
 
-# helper_functions_10x Roadmap
-Warning -- the `helper_functions_10x.py` script is currently a grab bag full of stuff, but will become more organized over time. This repo may eventually become a pip installable library or may (at least partially) become absorbed by [Clustergrammer2](https://github.com/ismms-himc/clustergrammer2).
+# himc_helper_functions Roadmap
+Warning -- the `himc_helper_functions.py` script is currently a grab bag full of stuff, but will become more organized over time. This repo may eventually become a pip installable library or may (at least partially) become absorbed by [Clustergrammer2](https://github.com/ismms-himc/clustergrammer2).
 
 # Single-Cell Data Read/Write
 This set of functions will be used to read and write single cell data between several commonly used and custom data formats. This section of this README will describe these files and some schemas for what we want to save and in what data formats we want to use.
