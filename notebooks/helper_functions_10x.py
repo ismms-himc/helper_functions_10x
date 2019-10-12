@@ -515,7 +515,10 @@ def assign_htos(df_hto_ini, meta_hto, meta_cell, sn_thresh):
 
     df_comp = pd.concat([ser_first, ser_second], axis=1).transpose()
 
+    # calculate signal-to-noise
     sn_ratio = np.log2(df_comp.loc['first highest HTO']/df_comp.loc['second highest HTO'])
+    # replace nans with zeros (nans represent all zeros for htos)
+    sn_ratio = sn_ratio.fillna(0)
 
     # save to metadata
     meta_cell['hto-log2-sn'] = sn_ratio
