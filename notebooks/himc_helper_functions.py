@@ -1,4 +1,4 @@
-# Version: 0.4.0
+# Version: 0.5.0
 # This is a set of scripts that are used in processing 10x single cell data
 
 import gzip
@@ -12,7 +12,7 @@ import os
 import matplotlib.pyplot as plt
 
 def get_version():
-    print('0.4.0', 'cytobank export, improved dehash api')
+    print('0.5.0', 'harmonize tcr vdj across lanes')
 
 def make_dir(directory):
     if not os.path.exists(directory):
@@ -793,3 +793,88 @@ def make_cyto_export(df, num_var_genes=500):
 # for key,value in list_ser_functions.items():
 #     list_ser.append(value(df))
 # df['meta_cell'] = pd.DataFrame(data=list_ser).transpose()
+
+
+def load_prod_vdj(inst_path):
+    inst_df = pd.read_csv(inst_path)
+    print('all contigs', inst_df.shape)
+    ser_prod = inst_df['productive']
+    keep_contigs = ser_prod[ser_prod == 'True'].index.tolist()
+    inst_df = inst_df.loc[keep_contigs]
+    print('productive contigs', inst_df.shape)
+    return inst_df
+
+def concat_contig(ser_row):
+    inst_v = str(ser_row['v_gene'])
+    inst_d = str(ser_row['d_gene'])
+    inst_j = str(ser_row['j_gene'])
+    inst_c = str(ser_row['c_gene'])
+    inst_cdr3 = str(ser_row['cdr3'])
+
+    # do not include c gene in clonotype definition (do not include c_gene)
+    inst_contig = inst_v + '_' + inst_d + '_' + inst_j + '_' + inst_cdr3
+
+    return inst_contig
+
+def get_unique_contigs(inst_df):
+    all_contigs = []
+    for inst_index in inst_df.index.tolist():
+        ser_row = inst_df.loc[inst_index]
+        inst_contig = concat_contig(ser_row)
+        all_contigs.append(inst_contig)
+    unique_contigs = sorted(list(set(all_contigs)))
+    return unique_contigs
+
+def assign_ids_to_contigs(unique_contigs):
+    contig_id_dict = {}
+    id_contig_dict = {}
+    for inst_index in range(len(unique_contigs)):
+        inst_id = 'contig-id-' + str(inst_index)
+        inst_contig = unique_contigs[inst_index]
+        contig_id_dict[inst_contig] = inst_id
+        id_contig_dict[inst_id] = inst_contig
+
+    return contig_id_dict, id_contig_dict
+
+def get_bc_contig_combos(inst_df, contig_id_dict):
+    bc_contig_combos = {}
+    for inst_row in inst_df.index.tolist():
+        ser_row = inst_df.loc[inst_row]
+        inst_bc = ser_row['barcode']
+        inst_contig = concat_contig(ser_row)
+        inst_id = contig_id_dict[inst_contig]
+        inst_clone = ser_row['raw_clonotype_id']
+
+        if inst_bc not in bc_contig_combos:
+            bc_contig_combos[inst_bc] = []
+
+        bc_contig_combos[inst_bc].append(inst_id)
+
+    return bc_contig_combos
+
+def generate_new_clonotypes(bc_contig_combos):
+    # find most abundant contig combos (clones)
+    contig_id_combos = []
+    for inst_bc in bc_contig_combos:
+        inst_combo = '_'.join(sorted(bc_contig_combos[inst_bc]))
+        contig_id_combos.append(inst_combo)
+    ser_combos = pd.Series(contig_id_combos).value_counts()
+
+    # number new clones (contig combos) based on abundance
+    inst_id = 1
+    combo_clone_dict = {}
+    clone_combo_dict = {}
+    for inst_combo in ser_combos.index.tolist():
+        new_clone_name = 'custom-clone-' + str(inst_id)
+        combo_clone_dict[inst_combo] = new_clone_name
+        clone_combo_dict[new_clone_name] = inst_combo
+        inst_id = inst_id + 1
+
+    # make dictionary of new clones for each barcode
+    cell_new_clone = {}
+    for inst_bc in bc_contig_combos:
+        inst_combo = '_'.join(sorted(bc_contig_combos[inst_bc]))
+        new_clone = combo_clone_dict[inst_combo]
+        cell_new_clone[inst_bc] = new_clone
+
+    return cell_new_clone
