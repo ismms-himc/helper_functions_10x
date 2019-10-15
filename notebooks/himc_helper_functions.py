@@ -242,6 +242,10 @@ def filter_barcodes_by_umi(feature_data, feature_type, min_umi=0, max_umi=1e8,
     # feature data format
     ########################
     if 'mat' in feature_data[feature_type]:
+
+        # sparse matrix
+        ##################
+
         mat_csc = feature_data[feature_type]['mat']
 
         if zscore_features:
@@ -278,6 +282,8 @@ def filter_barcodes_by_umi(feature_data, feature_type, min_umi=0, max_umi=1e8,
             filtered_data[inst_feat] = inst_data
 
     else:
+        # dense matrix
+        ###############
         # drop barcodes with fewer than threshold UMI
         inst_df = feature_data[feature_type]
 
