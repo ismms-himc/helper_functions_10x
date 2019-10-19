@@ -245,7 +245,6 @@ def filter_barcodes_by_umi(feature_data, feature_type, min_umi=0, max_umi=1e8,
 
         # sparse matrix
         ##################
-
         mat_csc = feature_data[feature_type]['mat']
 
         if zscore_features:
@@ -270,18 +269,21 @@ def filter_barcodes_by_umi(feature_data, feature_type, min_umi=0, max_umi=1e8,
         filtered_data = {}
         for inst_feat in feature_data:
 
-            inst_mat = feature_data[inst_feat]['mat']
-            mat_filt = inst_mat[:, keep_indexes]
-            feature_names = feature_data[inst_feat]['features']
+            if 'meta' not in inst_feat:
 
-            inst_data = {}
-            inst_data['mat'] = mat_filt
-            inst_data['barcodes'] = barcodes_filt
-            inst_data['features'] = feature_names
+                inst_mat = feature_data[inst_feat]['mat']
+                mat_filt = inst_mat[:, keep_indexes]
+                feature_names = feature_data[inst_feat]['features']
 
-            filtered_data[inst_feat] = inst_data
+                inst_data = {}
+                inst_data['mat'] = mat_filt
+                inst_data['barcodes'] = barcodes_filt
+                inst_data['features'] = feature_names
+
+                filtered_data[inst_feat] = inst_data
 
     else:
+
         # dense matrix
         ###############
         # drop barcodes with fewer than threshold UMI
@@ -327,9 +329,10 @@ def convert_feature_data_to_df_dict(feature_data, make_sparse=True):
 
 def check_feature_data_size(feature_data):
     for inst_feat in feature_data:
-        print(inst_feat)
-        print(len(feature_data[inst_feat]['features']), len(feature_data[inst_feat]['barcodes']))
-        print(feature_data[inst_feat]['mat'].shape, '\n')
+        if 'meta' not in inst_feat:
+            print(inst_feat)
+            print(len(feature_data[inst_feat]['features']), len(feature_data[inst_feat]['barcodes']))
+            print(feature_data[inst_feat]['mat'].shape, '\n')
 
 def calc_mito_gene_umi_fraction(df_gex, meta_cell, plot_mito=False, mito_thresh=0.9):
 
@@ -884,3 +887,15 @@ def generate_new_clonotypes(bc_contig_combos):
         cell_new_clone[inst_bc] = new_clone
 
     return cell_new_clone
+
+def add_uniform_noise(df_ini):
+    df_noise = deepcopy(df_ini)
+    np.random.seed(100)
+    for inst_col in df_noise:
+        inst_ser = df_noise[inst_col]
+        rand_ser = np.random.uniform(-0.5, 0.5, df_ini.shape[0])
+        rand_ser = rand_ser.round(2)
+        inst_ser = inst_ser + rand_ser
+        df_noise[inst_col] = inst_ser
+
+    return df_noise
