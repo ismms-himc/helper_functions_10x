@@ -887,15 +887,20 @@ def generate_new_clonotypes(bc_contig_combos):
         cell_new_clone[inst_bc] = new_clone
 
     return cell_new_clone
-
 def add_uniform_noise(df_ini):
-    df_noise = deepcopy(df_ini)
-    np.random.seed(100)
-    for inst_col in df_noise:
-        inst_ser = df_noise[inst_col]
-        rand_ser = np.random.uniform(-0.5, 0.5, df_ini.shape[0])
-        rand_ser = rand_ser.round(2)
-        inst_ser = inst_ser + rand_ser
-        df_noise[inst_col] = inst_ser
+    df = deepcopy(df_ini)
+    rows = df.index.tolist()
+    cols = df.columns.tolist()
 
-    return df_noise
+    # generate random matrix
+    np.random.seed(99)
+    num_rows = df.shape[0]
+    num_cols = df.shape[1]
+    mat = np.random.rand(num_rows, num_cols)
+
+    # make random noise dataframe centered about zero
+    df_noise = pd.DataFrame(data=mat, columns=cols, index=rows).round(2) - 0.5
+
+    df_new = df + df_noise
+
+    return df_new
