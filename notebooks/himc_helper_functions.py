@@ -394,7 +394,6 @@ def set_hto_thresh(df_hto, meta_hto, hto_name, max_plot_hto=7, thresh=1, ylim =1
     plt.ylim((0,100))
 
 def ini_meta_cell(df):
-    cells = df['gex'].columns.tolist()
     list_ser = []
 
     # look for available data types
@@ -408,12 +407,11 @@ def ini_meta_cell(df):
         list_ser.append(inst_ser)
 
     df['meta_cell'] = pd.DataFrame(data=list_ser).transpose()
-
-    df_gex = deepcopy(df['gex'])
-    df_gex[df_gex >= 1] = 1
-    ser_gene_num = df_gex.sum(axis=0)
-    df['meta_cell']['num_expressed_genes'] = ser_gene_num
-
+    if 'gex' in df.keys():
+        df_gex = deepcopy(df['gex'])
+        df_gex[df_gex >= 1] = 1
+        ser_gene_num = df_gex.sum(axis=0)
+        df['meta_cell']['num_expressed_genes'] = ser_gene_num
     return df
 
 def meta_cell_gex_wo_mito_ribo(df_gex_ini, meta_cell):
@@ -742,7 +740,7 @@ def make_dehash_meta_cell(df, ct_list, hto_names, ct_max_hto, sn_ratio_all, sn_s
 
 def make_cyto_export(df, num_var_genes=500):
 
-    keep_meta = ['hto-umi-sum',
+    keep_meta_base = ['hto-umi-sum',
                  'gex-umi-sum',
                  'adt-umi-sum',
                  'num_expressed_genes',
@@ -754,26 +752,27 @@ def make_cyto_export(df, num_var_genes=500):
     df_cyto = None
 
     for inst_type in ['gex', 'adt', 'hto', 'meta_cell']:
-        inst_df = deepcopy(df[inst_type])
+        if inst_type in df.keys():
+            inst_df = deepcopy(df[inst_type])
 
-        # filter for top var genes
-        if inst_type == 'gex':
-            keep_var_genes = inst_df.var(axis=1).sort_values(ascending=False).index.tolist()[:num_var_genes]
-            inst_df = inst_df.loc[keep_var_genes]
+            # filter for top var genes
+            if inst_type == 'gex':
+                keep_var_genes = inst_df.var(axis=1).sort_values(ascending=False).index.tolist()[:num_var_genes]
+                inst_df = inst_df.loc[keep_var_genes]
+            if 'meta' not in inst_type:
+                inst_df.index = [inst_type.upper() + '_' + x for x in inst_df.index.tolist()]
 
-        if 'meta' not in inst_type:
-            inst_df.index = [inst_type.upper() + '_' + x for x in inst_df.index.tolist()]
+            else:
+                keep_meta = [metadata for metadata in keep_meta_base if metadata in inst_df.columns]
+                inst_df = inst_df[keep_meta].transpose()
+                inst_df.index = ['DER_' + x for x in inst_df.index.tolist()]
 
-        else:
-            inst_df = inst_df[keep_meta].transpose()
-            inst_df.index = ['DER_' + x for x in inst_df.index.tolist()]
+            print(inst_type, inst_df.shape)
 
-        print(inst_type, inst_df.shape)
-
-        if df_cyto is None:
-            df_cyto = inst_df
-        else:
-            df_cyto = df_cyto.append(inst_df)
+            if df_cyto is None:
+                df_cyto = inst_df
+            else:
+                df_cyto = df_cyto.append(inst_df)
 
     df_export = df_cyto.transpose()
 
