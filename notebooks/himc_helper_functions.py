@@ -938,7 +938,7 @@ def filter_sparse_matrix_by_list(feat, feature_type='gex', keep_rows='all', keep
         index_dict = dict((value, idx) for idx,value in enumerate(cols))
         cols_idx = [index_dict[x] for x in keep_cols]
 
-        if filter_by_all_cols:
+        if filter_all_by_cols:
             # filter all features by columns
             for inst_feat in feat:
 
