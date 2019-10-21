@@ -1,4 +1,4 @@
-# Version: 0.5.0
+# Version: 0.6.0
 # This is a set of scripts that are used in processing 10x single cell data
 
 import gzip
@@ -12,7 +12,7 @@ import os
 import matplotlib.pyplot as plt
 
 def get_version():
-    print('0.5.0', 'harmonize tcr vdj across lanes')
+    print('0.6.0', 'Sparse feature filtering and metadata')
 
 def make_dir(directory):
     if not os.path.exists(directory):
@@ -779,6 +779,12 @@ def make_cyto_export(df, num_var_genes=500):
     cells = df_export.index.tolist()
     index_cells = [str(x/100) for x in range(len(cells))]
     df_export.index = index_cells
+
+    # Add noise
+    not_derived_columns = [column for column in df_export.columns if not column.startswith('DER_')]
+    not_derived_dataframe_shape = df_export[not_derived_columns].shape
+    noise_matrix = pd.DataFrame(data=np.random.rand(not_derived_dataframe_shape[0], not_derived_dataframe_shape[1]), index=index_cells, columns=not_derived_columns).round(2)
+    df_export[not_derived_columns] += noise_matrix
 
     ser_index = pd.Series(data=index_cells, index=cells)
     df['meta_cell']['Cytobank-Index'] = ser_index
