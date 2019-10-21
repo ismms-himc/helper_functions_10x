@@ -887,6 +887,7 @@ def generate_new_clonotypes(bc_contig_combos):
         cell_new_clone[inst_bc] = new_clone
 
     return cell_new_clone
+
 def add_uniform_noise(df_ini):
     df = deepcopy(df_ini)
     rows = df.index.tolist()
@@ -904,3 +905,80 @@ def add_uniform_noise(df_ini):
     df_new = df + df_noise
 
     return df_new
+
+def filter_sparse_matrix_by_feature_list(feat, feature_type='gex', keep_rows='all', keep_cols='all'):
+
+    feat_filt = deepcopy(feat)
+
+    # get all rows and cols
+    rows = feat_filt[feature_type]['features']
+    cols = feat_filt[feature_type]['barcodes']
+
+    inst_mat = deepcopy(feat_filt[feature_type]['mat'])
+
+    if isinstance(keep_rows, list):
+        index_dict = dict((value, idx) for idx,value in enumerate(rows))
+        rows_idx = [index_dict[x] for x in keep_rows]
+
+        inst_mat = inst_mat[rows_idx,:]
+
+    else:
+        keep_rows = rows
+
+
+
+    if isinstance(keep_cols, list):
+        index_dict = dict((value, idx) for idx,value in enumerate(cols))
+        cols_idx = [index_dict[x] for x in keep_cols]
+
+        inst_mat = inst_mat[:,cols_idx]
+    else:
+        keep_cols = cols
+
+    feat_filt[feature_type]['barcodes'] = keep_cols
+    feat_filt[feature_type]['features'] = keep_rows
+    feat_filt[feature_type]['mat'] = inst_mat
+
+    return feat_filt
+
+def filter_ribo_mito_from_list(all_genes):
+
+    # find ribosomal genes
+    ribo_rpl = [x for x in all_genes if 'RPL' in x]
+    ribo_rps = [x for x in all_genes if 'RPS' in x]
+    ribo_genes = ribo_rpl + ribo_rps
+
+
+    # Find mitochondrial genes
+    list_mito_genes = ['MTRNR2L11', 'MTRF1', 'MTRNR2L12', 'MTRNR2L13', 'MTRF1L', 'MTRNR2L6', 'MTRNR2L7',
+                    'MTRNR2L10', 'MTRNR2L8', 'MTRNR2L5', 'MTRNR2L1', 'MTRNR2L3', 'MTRNR2L4']
+
+    mito_genes = [x for x in all_genes if 'MT-' == x[:3] or
+                 x.split('_')[0] in list_mito_genes]
+
+
+    # filter genes
+    keep_genes = [x for x in all_genes if x not in ribo_genes]
+    keep_genes = [x for x in keep_genes if x not in mito_genes]
+
+    return keep_genes
+
+def calc_feat_sum_and_meas_across_cells(feat_data, inst_feat):
+    barcodes = feat_data[inst_feat]['barcodes']
+    mat = deepcopy(feat_data[inst_feat]['mat'])
+
+    # sum umi of measured features
+    arr_sum = mat.sum(axis=0)
+    arr_sum = np.asarray(arr_sum[0,:])
+    ser_sum = pd.Series(arr_sum[0], index=barcodes, name=inst_feat + '-umi-sum')
+
+
+    # count number of measured features
+    mat[mat > 1] = 1
+    arr_count = mat.sum(axis=0)
+    arr_count = np.asarray(arr_count[0,:])
+    ser_count = pd.Series(arr_count[0], index=barcodes, name=inst_feat + '-num-meas')
+
+    inst_df = pd.concat([ser_sum, ser_count], axis=1)
+
+    return inst_df
