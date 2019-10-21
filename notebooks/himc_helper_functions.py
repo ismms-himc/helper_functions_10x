@@ -906,7 +906,11 @@ def add_uniform_noise(df_ini):
 
     return df_new
 
-def filter_sparse_matrix_by_feature_list(feat, feature_type='gex', keep_rows='all', keep_cols='all'):
+def filter_sparse_matrix_by_list(feat, feature_type='gex', keep_rows='all', keep_cols='all', filter_all_by_cols=True):
+    '''
+    This function filters sparse data by lists of rows/cols.
+    filter_by_all_cols is the default because we want all data to have the same number of barcodes/cells
+    '''
 
     feat_filt = deepcopy(feat)
 
@@ -914,30 +918,51 @@ def filter_sparse_matrix_by_feature_list(feat, feature_type='gex', keep_rows='al
     rows = feat_filt[feature_type]['features']
     cols = feat_filt[feature_type]['barcodes']
 
-    inst_mat = deepcopy(feat_filt[feature_type]['mat'])
-
     if isinstance(keep_rows, list):
         index_dict = dict((value, idx) for idx,value in enumerate(rows))
         rows_idx = [index_dict[x] for x in keep_rows]
 
+        # copy feature data of interest
+        inst_mat = deepcopy(feat_filt[feature_type]['mat'])
         inst_mat = inst_mat[rows_idx,:]
+
+        # filter rows for single feature
+        feat_filt[feature_type]['barcodes'] = keep_cols
+        feat_filt[feature_type]['features'] = keep_rows
+        feat_filt[feature_type]['mat'] = inst_mat
 
     else:
         keep_rows = rows
-
-
 
     if isinstance(keep_cols, list):
         index_dict = dict((value, idx) for idx,value in enumerate(cols))
         cols_idx = [index_dict[x] for x in keep_cols]
 
-        inst_mat = inst_mat[:,cols_idx]
+        if filter_by_all_cols:
+            # filter all features by columns
+            for inst_feat in feat:
+
+                inst_mat = deepcopy(feat_filt[feature_type]['mat'])
+                inst_mat = inst_mat[:,cols_idx]
+
+                # filter single feature by columns
+                feat_filt[inst_feat]['barcodes'] = keep_cols
+                feat_filt[inst_feat]['features'] = keep_rows
+                feat_filt[inst_feat]['mat'] = inst_mat
+
+        else:
+
+            inst_mat = deepcopy(feat_filt[feature_type]['mat'])
+            inst_mat = inst_mat[:,cols_idx]
+
+            # filter single feature by columns
+            feat_filt[feature_type]['barcodes'] = keep_cols
+            feat_filt[feature_type]['features'] = keep_rows
+            feat_filt[feature_type]['mat'] = inst_mat
+
     else:
         keep_cols = cols
 
-    feat_filt[feature_type]['barcodes'] = keep_cols
-    feat_filt[feature_type]['features'] = keep_rows
-    feat_filt[feature_type]['mat'] = inst_mat
 
     return feat_filt
 
