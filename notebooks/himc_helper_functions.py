@@ -1,4 +1,4 @@
-# Version: 0.5.0
+# Version: 0.6.0
 # This is a set of scripts that are used in processing 10x single cell data
 
 import gzip
@@ -12,7 +12,7 @@ import os
 import matplotlib.pyplot as plt
 
 def get_version():
-    print('0.5.0', 'harmonize tcr vdj across lanes')
+    print('0.6.0', 'cell metadata from sparse')
 
 def make_dir(directory):
     if not os.path.exists(directory):
@@ -308,22 +308,15 @@ def filter_barcodes_by_umi(feature_data, feature_type, min_umi=0, max_umi=1e8,
 
     return filtered_data
 
-def convert_feature_data_to_df_dict(feature_data, make_sparse=True):
-
-    # return Dictionary of DataFrames
+def convert_to_dense(feat_data):
     df = {}
-    for inst_feat in feature_data:
+    for inst_feat in feat_data:
+        mat = feat_data[inst_feat]['mat']
+        rows = feat_data[inst_feat]['features']
+        cols = feat_data[inst_feat]['barcodes']
 
-        inst_mat = feature_data[inst_feat]['mat']
-        feature_names = feature_data[inst_feat]['features']
-        barcodes = feature_data[inst_feat]['barcodes']
-
-        if make_sparse:
-            inst_data = pd.SparseDataFrame(data=inst_mat, index=feature_names, columns=barcodes, default_fill_value=0)
-        else:
-            inst_data = pd.DataFrame(data=inst_mat.todense(), index=feature_names, columns=barcodes)
-
-        df[inst_feat] = inst_data
+        dense_mat = mat.todense()
+        df[inst_feat] = pd.DataFrame(dense_mat, index=rows, columns=cols)
 
     return df
 
@@ -906,7 +899,7 @@ def add_uniform_noise(df_ini):
 
     return df_new
 
-def filter_sparse_matrix_by_list(feat, feature_type='gex', keep_rows='all', keep_cols='all', filter_all_by_cols=True):
+def filter_sparse_matrix_by_list(feat, feature_type='gex', keep_rows='all', keep_cols='all'):
     '''
     This function filters sparse data by lists of rows/cols.
     filter_by_all_cols is the default because we want all data to have the same number of barcodes/cells
@@ -914,12 +907,19 @@ def filter_sparse_matrix_by_list(feat, feature_type='gex', keep_rows='all', keep
 
     feat_filt = deepcopy(feat)
 
-    # get all rows and cols
-    rows = feat_filt[feature_type]['features']
-    cols = feat_filt[feature_type]['barcodes']
+    # get all cols from any feature
+    tmp_feat = list(feat_filt.keys())[0]
+    cols = feat_filt[tmp_feat]['barcodes']
 
+    # Feature (row) Level Filtering
+    #################################
+    # apply to single feature
     if isinstance(keep_rows, list):
-        index_dict = dict((value, idx) for idx,value in enumerate(rows))
+
+        # get initial feature list
+        rows_orig = feat_filt[feature_type]['features']
+
+        index_dict = dict((value, idx) for idx,value in enumerate(rows_orig))
         rows_idx = [index_dict[x] for x in keep_rows]
 
         # copy feature data of interest
@@ -927,42 +927,30 @@ def filter_sparse_matrix_by_list(feat, feature_type='gex', keep_rows='all', keep
         inst_mat = inst_mat[rows_idx,:]
 
         # filter rows for single feature
-        feat_filt[feature_type]['barcodes'] = keep_cols
+        feat_filt[feature_type]['barcodes'] = cols
         feat_filt[feature_type]['features'] = keep_rows
         feat_filt[feature_type]['mat'] = inst_mat
 
-    else:
-        keep_rows = rows
-
+    # Cell (col) Level Filtering
+    #################################
+    # apply to all features
     if isinstance(keep_cols, list):
         index_dict = dict((value, idx) for idx,value in enumerate(cols))
         cols_idx = [index_dict[x] for x in keep_cols]
 
-        if filter_all_by_cols:
-            # filter all features by columns
-            for inst_feat in feat:
+        # filter all features by columns
+        for inst_feat in feat:
 
-                inst_mat = deepcopy(feat_filt[feature_type]['mat'])
-                inst_mat = inst_mat[:,cols_idx]
+            # get initial feature list
+            rows_orig = feat_filt[inst_feat]['features']
 
-                # filter single feature by columns
-                feat_filt[inst_feat]['barcodes'] = keep_cols
-                feat_filt[inst_feat]['features'] = keep_rows
-                feat_filt[inst_feat]['mat'] = inst_mat
-
-        else:
-
-            inst_mat = deepcopy(feat_filt[feature_type]['mat'])
+            inst_mat = deepcopy(feat_filt[inst_feat]['mat'])
             inst_mat = inst_mat[:,cols_idx]
 
             # filter single feature by columns
-            feat_filt[feature_type]['barcodes'] = keep_cols
-            feat_filt[feature_type]['features'] = keep_rows
-            feat_filt[feature_type]['mat'] = inst_mat
-
-    else:
-        keep_cols = cols
-
+            feat_filt[inst_feat]['barcodes'] = keep_cols
+            feat_filt[inst_feat]['features'] = rows_orig
+            feat_filt[inst_feat]['mat'] = inst_mat
 
     return feat_filt
 
@@ -993,16 +981,13 @@ def calc_feat_sum_and_meas_across_cells(feat_data, inst_feat):
     mat = deepcopy(feat_data[inst_feat]['mat'])
 
     # sum umi of measured features
-    arr_sum = mat.sum(axis=0)
-    arr_sum = np.asarray(arr_sum[0,:])
-    ser_sum = pd.Series(arr_sum[0], index=barcodes, name=inst_feat + '-umi-sum')
-
+    arr_sum = np.asarray(mat.sum(axis=0))[0]
+    ser_sum = pd.Series(arr_sum, index=barcodes, name=inst_feat + '-umi-sum')
 
     # count number of measured features
     mat[mat > 1] = 1
-    arr_count = mat.sum(axis=0)
-    arr_count = np.asarray(arr_count[0,:])
-    ser_count = pd.Series(arr_count[0], index=barcodes, name=inst_feat + '-num-meas')
+    arr_count = np.asarray(mat.sum(axis=0))[0]
+    ser_count = pd.Series(arr_count, index=barcodes, name=inst_feat + '-num-meas')
 
     inst_df = pd.concat([ser_sum, ser_count], axis=1)
 
