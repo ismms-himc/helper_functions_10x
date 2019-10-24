@@ -954,6 +954,22 @@ def filter_sparse_matrix_by_list(feat, feature_type='gex', keep_rows='all', keep
 
     return feat_filt
 
+def preserve_genes_most_variant(input_df, genes_most_variant=500):
+    gene_variance = (input_df['gex']['mat'].power(2)).mean(1) - (
+        np.power(input_df['gex']['mat'].mean(1), 2))
+    gene_variance_sorted = sorted([(index, variance) for index, variance in enumerate(gene_variance)],
+                                  key=(lambda x: x[1]), reverse=True)
+    feature_data_gene_variance_filtered = filter_sparse_matrix_by_list(input_df,
+                                                                          feature_type='gex',
+                                                                          keep_rows=[input_df['gex'][
+                                                                                         'features'][
+                                                                                         each_gene_variance[0]] for
+                                                                                     each_gene_variance in
+                                                                                     gene_variance_sorted[
+                                                                                     :genes_most_variant]])
+
+    return feature_data_gene_variance_filtered
+
 def filter_ribo_mito_from_list(all_genes):
 
     # find ribosomal genes
