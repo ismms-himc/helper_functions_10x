@@ -12,17 +12,13 @@ import os
 import matplotlib.pyplot as plt
 
 def get_version():
-<<<<<<< HEAD
     print('0.6.0', 'cell metadata from sparse')
-=======
-    print('0.6.0', 'Sparse feature filtering and metadata')
->>>>>>> b71a3beb8b9f7b51528e51c429bd8e5574341a46
 
 def make_dir(directory):
     if not os.path.exists(directory):
         os.mkdir(directory)
 
-def load_crv3_feature_matrix(inst_path):
+def load_crv3_feature_matrix(inst_path, to_csc=True):
     # Read Barcodes
     ###########################
     # need to check whether we have tuples
@@ -95,7 +91,7 @@ def load_crv3_feature_matrix(inst_path):
         feature_lines[inst_feat] = lines_found
 
         # save as compressed sparse column matrix (for barcode filtering)
-        mat_filt = mat_csr[inst_indexes, :].tocsc()
+        mat_filt = (mat_csr[inst_indexes, :].tocsc() if to_csc else mat_csr[inst_indexes, :])
 
         feature_data[inst_feat]['mat'] = mat_filt
 
@@ -1002,7 +998,7 @@ def filter_ribo_mito_from_list(all_genes):
     return keep_genes
 
 def calc_feat_sum_and_meas_across_cells(feat_data, inst_feat):
-    barcodes = feat_data[inst_feat]['barcodes']
+    barcodes = (feat_data[inst_feat]['barcodes'] if 'barcodes' in feat_data[inst_feat].keys() else feat_data[inst_feat].columns)
     mat = deepcopy(feat_data[inst_feat]['mat'])
 
     # sum umi of measured features
