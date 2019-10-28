@@ -57,12 +57,29 @@ Will make function for this
 df_hto = deepcopy(df['hto'])
 ```
 
-### HTO Spillover Correction (if necessary)
+### HTO Compensation Correction (if necessary)
+HTO26 and HTO27. Subtract some fraction of one HTO from the other. This is only an issue for two HTOs from 3'.
 
+```
+# corr is the correction factor
+HTO1 = HTO1 - HTO2 * corr
+```
+
+This could be an issue. This is basically a contamination issue. May save the HTO data.
 
 ### Dehash Threshold
-Set threshold for positive hto on a per-hto basis. Define debris, singlets, multiplets based on threshoolding. 
+Set threshold for positive HTO on a per-hto basis. Define debris, singlets, multiplets based on threshoolding. 
 
+Signal to noise (sn, log2 signal of highest threshold vs second-highest threshold). This signal-to-noise data can be used to adjust our previous threshold de-hashing results. We allow for three sn-thresholds that can rescue debris and multiplets or throw out singlets.  
+
+```
+sn_thresh
+  debris: rescue to singlet if sn above threshold
+  singlet: convert to multiplet if sn below threshold
+  multiplet: rescue to singlet if sn above thresh (~1)
+```
+
+We give two de-hashing opinions for each cell (thresh, thresh-sn). Finally, the sample is assigned based on the dehashing results.  
 
 ### 
 
