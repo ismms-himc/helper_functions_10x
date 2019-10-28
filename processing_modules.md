@@ -11,7 +11,7 @@ Here we should divide up custom into `HTO` and `ADT` (delete `custom`).
 # Make Barcode Names Unique (if necessary)
 Depending on the sample, we may make the barcode names non-unique (e.g. add sample name to barcode) - if we do this, we should also save the original barcode as a cell level metadata.
 
-### HTO Compensation Correction (if necessary)
+### HTO Compensation Correction (if necessary) DNE
 HTO26 and HTO27. Subtract some fraction of one HTO from the other. This is only an issue for two HTOs from 3'.
 
 ```
@@ -40,7 +40,10 @@ feat_data
 ```
 
 ## 2) Initialize Cell Metadata
-Calc UMI-sum and number of unique measurements for GEX, ADT, HTO
+Calc UMI-sum and number of unique 
+urements for GEX, ADT, HTO. Always define `Sample` cell metadata (if hashed experiment, initialize with `NaN`, this will be overwritten after dehashing). 
+
+** change meas to count
 
 ```
 df_meta = calc_feat_sum_and_meas_across_cells(feat_data, inst_feat)
@@ -64,7 +67,7 @@ The debris cells are permanently filtered. Reduces from 700K/6M -> 10-20K cells.
 
 Clean up meta_cell by dropping metadata for debris.
 
-## 4) Dehash (if necessary)
+## 4) Dehash (if necessary, so far in dense only)
 Will make function for this 
 ```
 # dense copy of HTO data
@@ -86,16 +89,34 @@ sn_thresh
 
 We give two de-hashing opinions for each cell (thresh, thresh-sn). Finally, the sample is assigned based on the dehashing results. De-hashing basicaslly becomes only cell level metadata.  
 
-### 
+## Dead Cell Annotation 
+Calculate proportion of mitochondrial gene expression and set a threshold for dead cells (~25%, by eye). 
 
+### Save Cell Metadata
+Save cell metadata as CSV for the user. 
 
+### Save Sample Metadata
+Aggregate across cells from the same sample
 
+* Number of cells
+* Average UMI Sum across cells
+* Average num of unique feature count (gex, adt, hto)
+* Percentage of dead cells based on mito threshold
+* Tissue
+* Treatment
+* Subject
 
+# Send to Researcher
+* Sparse FBM raw from Cell Ranger
+* Filtered FBM from Cell Ranger
+* Cell Metadata CSV
 
+# Merging Lanes (later notebook)
+This is run after we have de-hashed each lane or if we just need to merge cells. 
 
-
-
-### Dense (later)
+# Clonality (later notebook)
+ 
+### Dense (later noteboo)
 ```
 df
   gex
