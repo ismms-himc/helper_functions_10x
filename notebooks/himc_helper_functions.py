@@ -12,7 +12,7 @@ import os
 import matplotlib.pyplot as plt
 
 def get_version():
-    print('0.6.0', 'cell metadata from sparse')
+    print('0.6.1', 'clean dehash')
 
 def make_dir(directory):
     if not os.path.exists(directory):
@@ -184,8 +184,19 @@ def load_crv2_gene_matrix(inst_path):
 
     return feature_data
 
+def plot_metadata(meta_cell, metadata_type='gex-umi-sum', logy=True, logx=False, min_umi=0, max_umi=1e9, figsize=(10,5)):
+
+    ser_meta = meta_cell[metadata_type]
+
+    # filter
+    ser_meta = ser_meta[ser_meta >= min_umi]
+    ser_meta = ser_meta[ser_meta <= max_umi]
+    ser_meta = ser_meta.sort_values(ascending=False)
+
+    ser_meta.plot(logy=logy, logx=logx, figsize=figsize)
+
 def plot_umi_levels(feature_data, feature_type='gex', logy=True, logx=False,
-                    figsize=(10,5), min_umi=0, max_umi=1e8, zscore_features=False):
+                    figsize=(10,5), min_umi=0, max_umi=1e9, zscore_features=False):
     '''
     This function takes a feature data format or dictionary of DataFrames and plots
     UMI levels
@@ -340,7 +351,12 @@ def calc_mito_gene_umi_fraction(df_gex, meta_cell, plot_mito=False, mito_thresh=
 
 
     mito_sum = df_gex.loc[mito_genes].sum(axis=0)
-    gex_sum = df_gex.sum(axis=0)
+
+    if 'gex-umi-sum' not in meta_cell.columns:
+        print('calculating gex-umi-sum, not in meta_cell')
+        gex_sum = df_gex.sum(axis=0)
+    else:
+        gex_sum = meta_cell['gex-umi-sum']
 
     mito_fraction = mito_sum/gex_sum
 
@@ -387,7 +403,7 @@ def set_hto_thresh(df_hto, meta_hto, hto_name, max_plot_hto=7, thresh=1, ylim =1
         patch.set_facecolor(color)
 
     meta_hto.loc[hto_name, 'hto-threshold'] = thresh
-    plt.ylim((0,100))
+    plt.ylim((0,ylim))
 
 def ini_meta_cell(df):
     cells = df['gex'].columns.tolist()
@@ -609,9 +625,8 @@ def plot_signal_vs_noise(df, alpha=0.25, s=10, hto_range=7, inf_replace=5):
 
     return df_comp, sn_ratio
 
-def filter_ribo_mito_from_gex(df_ini, meta_cell):
+def filter_ribo_mito_from_gex(df, meta_cell):
 
-    df = deepcopy(df_ini)
     all_genes = df.index.tolist()
 
     ribo_rpl = [x for x in all_genes if 'RPL' in x]
@@ -619,7 +634,7 @@ def filter_ribo_mito_from_gex(df_ini, meta_cell):
     ribo_genes = ribo_rpl + ribo_rps
 
     # calculate average ribo gene expression
-    ser_ribo = df_ini.loc[ribo_genes].mean(axis=0)
+    ser_ribo = df.loc[ribo_genes].mean(axis=0)
     ser_ribo.name = 'Ribosomal-Avg'
 
     keep_genes = [x for x in all_genes if x not in ribo_genes]
@@ -638,7 +653,7 @@ def filter_ribo_mito_from_gex(df_ini, meta_cell):
 
 
     # calculate average ribo gene expression
-    ser_mito = df_ini.loc[mito_genes].mean(axis=0)
+    ser_mito = df.loc[mito_genes].mean(axis=0)
     ser_mito.name = 'Mitochondrial-Avg'
 
     keep_genes = [x for x in all_genes if x not in mito_genes]
@@ -976,7 +991,7 @@ def filter_ribo_mito_from_list(all_genes):
 
     return keep_genes
 
-def calc_feat_sum_and_meas_across_cells(feat_data, inst_feat):
+def calc_feat_sum_and_unique_count_across_cells(feat_data, inst_feat):
     barcodes = feat_data[inst_feat]['barcodes']
     mat = deepcopy(feat_data[inst_feat]['mat'])
 
@@ -987,7 +1002,7 @@ def calc_feat_sum_and_meas_across_cells(feat_data, inst_feat):
     # count number of measured features
     mat[mat > 1] = 1
     arr_count = np.asarray(mat.sum(axis=0))[0]
-    ser_count = pd.Series(arr_count, index=barcodes, name=inst_feat + '-num-meas')
+    ser_count = pd.Series(arr_count, index=barcodes, name=inst_feat + '-num-unique')
 
     inst_df = pd.concat([ser_sum, ser_count], axis=1)
 
