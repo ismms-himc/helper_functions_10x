@@ -12,7 +12,7 @@ import os
 import matplotlib.pyplot as plt
 
 def get_version():
-    print('0.6.1', 'clean dehash')
+    print('0.6.2', 'rename fraction to proportion')
 
 def make_dir(directory):
     if not os.path.exists(directory):
@@ -338,7 +338,7 @@ def check_feature_data_size(feature_data):
             print(len(feature_data[inst_feat]['features']), len(feature_data[inst_feat]['barcodes']))
             print(feature_data[inst_feat]['mat'].shape, '\n')
 
-def calc_mito_gene_umi_fraction(df_gex, meta_cell, plot_mito=False, mito_thresh=0.9):
+def calc_mito_gene_umi_proportion(df_gex, meta_cell, plot_mito=False, mito_thresh=0.9):
 
     # Removing Mitochondrial Genes
     list_mito_genes = ['MTRNR2L11', 'MTRF1', 'MTRNR2L12', 'MTRNR2L13', 'MTRF1L', 'MTRNR2L6', 'MTRNR2L7',
@@ -358,15 +358,15 @@ def calc_mito_gene_umi_fraction(df_gex, meta_cell, plot_mito=False, mito_thresh=
     else:
         gex_sum = meta_cell['gex-umi-sum']
 
-    mito_fraction = mito_sum/gex_sum
+    mito_proportion = mito_sum/gex_sum
 
     if plot_mito:
-        mito_fraction.sort_values(ascending=False).plot()
+        mito_proportion.sort_values(ascending=False).plot()
 
     list_mito_dead = []
-    cells = mito_fraction.index.tolist()
+    cells = mito_proportion.index.tolist()
     for inst_cell in cells:
-        inst_mito = mito_fraction[inst_cell]
+        inst_mito = mito_proportion[inst_cell]
         if inst_mito >= mito_thresh:
             inst_state = 'dead-cell'
         else:
@@ -375,7 +375,7 @@ def calc_mito_gene_umi_fraction(df_gex, meta_cell, plot_mito=False, mito_thresh=
 
     ser_dead = pd.Series(list_mito_dead, index=cells)
 
-    meta_cell['mito-fraction-umi'] = mito_fraction
+    meta_cell['mito-proportion-umi'] = mito_proportion
     meta_cell['dead-cell-mito'] = ser_dead
 
     return meta_cell
