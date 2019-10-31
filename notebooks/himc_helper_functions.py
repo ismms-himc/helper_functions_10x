@@ -18,7 +18,7 @@ def make_dir(directory):
     if not os.path.exists(directory):
         os.mkdir(directory)
 
-def load_crv3_feature_matrix(inst_path, to_csc=True):
+def load_crv3_feature_matrix(inst_path, to_csc=True, given_hto_list=None):
     # Read Barcodes
     ###########################
     # need to check whether we have tuples
@@ -65,7 +65,12 @@ def load_crv3_feature_matrix(inst_path, to_csc=True):
     for index in range(len(lines)):
 
         inst_line = lines[index].strip().split('\t')
-        inst_feat = inst_line[2].replace('Gene Expression', 'gex').replace('Antibody Capture', 'adt').replace('Custom', 'custom')
+        inst_feat = inst_line[2].replace('Gene Expression', 'gex')#
+        if given_hto_list is None:
+            inst_feat=inst_feat.replace('Antibody Capture', 'adt').replace('Custom', 'custom')
+        else:
+            if inst_feat=='Custom':
+                inst_feat=('hto' if inst_line[0] in given_hto_list else 'adt')
 
 
         if inst_feat not in feature_indexes:
