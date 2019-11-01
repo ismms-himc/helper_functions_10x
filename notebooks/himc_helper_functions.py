@@ -1075,3 +1075,20 @@ def sample_meta(df_meta_ini, sample_name):
     ser_meta.name = sample_name
 
     return ser_meta
+
+def join_lanes(directory_list):
+    for inst_type in ['gex', 'adt', 'hto', 'meta_cell']:
+        list_df = []
+        for inst_dir in directory_list:
+            inst_lane = inst_dir.split('-')[-1]
+            inst_file = inst_dir + '/' + inst_type + '.parquet'
+            if os.path.exists(inst_file):
+                inst_df = pd.read_parquet(inst_file)
+                list_df.append(inst_df)
+        if len(list_df)>0:
+            if 'meta' in inst_type:
+                df_merge = pd.concat(list_df, axis=0)
+            else:
+                df_merge = pd.concat(list_df, axis=1)
+
+            df_merge.to_parquet('../data/processed_data/merged_lanes/' + inst_type + '.parquet')
