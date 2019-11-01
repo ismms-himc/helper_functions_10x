@@ -1034,3 +1034,44 @@ def calc_feat_sum_and_unique_count_across_cells(feat_data, inst_feat):
     inst_df = pd.concat([ser_sum, ser_count], axis=1)
 
     return inst_df
+
+
+def sample_meta(df_meta_ini, sample_name):
+    list_index = []
+    list_data = []
+
+    df_meta = deepcopy(df_meta_ini)
+
+    # proprtion of singlets
+    #########################
+    ser_cell_per = df_meta['cell-per-bead'].value_counts()
+
+    num_singlets = ser_cell_per.loc['singlet']
+    num_total = ser_cell_per.sum()
+
+    # number of singlets
+    list_index.append('number-singlets')
+    list_data.append(num_singlets)
+
+    # get singlets only
+    df_meta = df_meta[df_meta['cell-per-bead'] == 'singlet']
+
+    # proportion of dead cells
+    ##############################
+    ser_dead = df_meta['dead-cell-mito'].value_counts()
+    prop_dead = 1 - ser_dead['live-cell'] / ser_dead.sum()
+
+    list_index.append('proportion-dead')
+    list_data.append(prop_dead)
+
+    # assemble initial metadata series
+    ser_meta_ini = pd.Series(list_data, index=list_index)
+
+    # Calculate average metadata
+    meta_list = ['gex-umi-sum', 'gex-num-unique', 'mito-proportion-umi', 'Ribosomal-Avg', 'Mitochondrial-Avg']
+    ser_meta_mean = df_meta[meta_list].mean()
+
+    ser_meta = pd.concat([ser_meta_ini, ser_meta_mean])
+    ser_meta.name = sample_name
+
+    return ser_meta
