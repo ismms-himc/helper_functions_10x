@@ -18,7 +18,7 @@ def make_dir(directory):
     if not os.path.exists(directory):
         os.mkdir(directory)
 
-def load_crv3_feature_matrix(inst_path):
+def load_crv3_feature_matrix(inst_path, to_csc=True, given_hto_list=None):
     # Read Barcodes
     ###########################
     # need to check whether we have tuples
@@ -65,7 +65,12 @@ def load_crv3_feature_matrix(inst_path):
     for index in range(len(lines)):
 
         inst_line = lines[index].strip().split('\t')
-        inst_feat = inst_line[2].replace('Gene Expression', 'gex').replace('Antibody Capture', 'adt').replace('Custom', 'custom')
+        inst_feat = inst_line[2].replace('Gene Expression', 'gex')#
+        if given_hto_list is None:
+            inst_feat=inst_feat.replace('Antibody Capture', 'adt').replace('Custom', 'custom')
+        else:
+            if inst_feat=='Custom':
+                inst_feat=('hto' if inst_line[0] in given_hto_list else 'adt')
 
 
         if inst_feat not in feature_indexes:
@@ -91,7 +96,7 @@ def load_crv3_feature_matrix(inst_path):
         feature_lines[inst_feat] = lines_found
 
         # save as compressed sparse column matrix (for barcode filtering)
-        mat_filt = mat_csr[inst_indexes, :].tocsc()
+        mat_filt = (mat_csr[inst_indexes, :].tocsc() if to_csc else mat_csr[inst_indexes, :])
 
         feature_data[inst_feat]['mat'] = mat_filt
 
@@ -406,7 +411,6 @@ def set_hto_thresh(df_hto, meta_hto, hto_name, max_plot_hto=7, thresh=1, ylim =1
     plt.ylim((0,ylim))
 
 def ini_meta_cell(df):
-    cells = df['gex'].columns.tolist()
     list_ser = []
 
     # look for available data types
@@ -420,12 +424,11 @@ def ini_meta_cell(df):
         list_ser.append(inst_ser)
 
     df['meta_cell'] = pd.DataFrame(data=list_ser).transpose()
-
-    df_gex = deepcopy(df['gex'])
-    df_gex[df_gex >= 1] = 1
-    ser_gene_num = df_gex.sum(axis=0)
-    df['meta_cell']['num_expressed_genes'] = ser_gene_num
-
+    if 'gex' in df.keys():
+        df_gex = deepcopy(df['gex'])
+        df_gex[df_gex >= 1] = 1
+        ser_gene_num = df_gex.sum(axis=0)
+        df['meta_cell']['num_expressed_genes'] = ser_gene_num
     return df
 
 def meta_cell_gex_wo_mito_ribo(df_gex_ini, meta_cell):
@@ -753,7 +756,7 @@ def make_dehash_meta_cell(df, ct_list, hto_names, ct_max_hto, sn_ratio_all, sn_s
 
 def make_cyto_export(df, num_var_genes=500):
 
-    keep_meta = ['hto-umi-sum',
+    keep_meta_base = ['hto-umi-sum',
                  'gex-umi-sum',
                  'adt-umi-sum',
                  'num_expressed_genes',
@@ -765,32 +768,39 @@ def make_cyto_export(df, num_var_genes=500):
     df_cyto = None
 
     for inst_type in ['gex', 'adt', 'hto', 'meta_cell']:
-        inst_df = deepcopy(df[inst_type])
+        if inst_type in df.keys():
+            inst_df = deepcopy(df[inst_type])
 
-        # filter for top var genes
-        if inst_type == 'gex':
-            keep_var_genes = inst_df.var(axis=1).sort_values(ascending=False).index.tolist()[:num_var_genes]
-            inst_df = inst_df.loc[keep_var_genes]
+            # filter for top var genes
+            if inst_type == 'gex':
+                keep_var_genes = inst_df.var(axis=1).sort_values(ascending=False).index.tolist()[:num_var_genes]
+                inst_df = inst_df.loc[keep_var_genes]
+            if 'meta' not in inst_type:
+                inst_df.index = [inst_type.upper() + '_' + x for x in inst_df.index.tolist()]
 
-        if 'meta' not in inst_type:
-            inst_df.index = [inst_type.upper() + '_' + x for x in inst_df.index.tolist()]
+            else:
+                keep_meta = [metadata for metadata in keep_meta_base if metadata in inst_df.columns]
+                inst_df = inst_df[keep_meta].transpose()
+                inst_df.index = ['DER_' + x for x in inst_df.index.tolist()]
 
-        else:
-            inst_df = inst_df[keep_meta].transpose()
-            inst_df.index = ['DER_' + x for x in inst_df.index.tolist()]
+            print(inst_type, inst_df.shape)
 
-        print(inst_type, inst_df.shape)
-
-        if df_cyto is None:
-            df_cyto = inst_df
-        else:
-            df_cyto = df_cyto.append(inst_df)
+            if df_cyto is None:
+                df_cyto = inst_df
+            else:
+                df_cyto = df_cyto.append(inst_df)
 
     df_export = df_cyto.transpose()
 
     cells = df_export.index.tolist()
     index_cells = [str(x/100) for x in range(len(cells))]
     df_export.index = index_cells
+
+    # Add noise
+    not_derived_columns = [column for column in df_export.columns if not column.startswith('DER_')]
+    not_derived_dataframe_shape = df_export[not_derived_columns].shape
+    noise_matrix = pd.DataFrame(data=np.random.rand(not_derived_dataframe_shape[0], not_derived_dataframe_shape[1]), index=index_cells, columns=not_derived_columns).round(2)
+    df_export[not_derived_columns] += noise_matrix
 
     ser_index = pd.Series(data=index_cells, index=cells)
     df['meta_cell']['Cytobank-Index'] = ser_index
@@ -969,6 +979,22 @@ def filter_sparse_matrix_by_list(feat, feature_type='gex', keep_rows='all', keep
 
     return feat_filt
 
+def preserve_genes_most_variant(input_df, genes_most_variant=500):
+    gene_variance = (input_df['gex']['mat'].power(2)).mean(1) - (
+        np.power(input_df['gex']['mat'].mean(1), 2))
+    gene_variance_sorted = sorted([(index, variance) for index, variance in enumerate(gene_variance)],
+                                  key=(lambda x: x[1]), reverse=True)
+    feature_data_gene_variance_filtered = filter_sparse_matrix_by_list(input_df,
+                                                                          feature_type='gex',
+                                                                          keep_rows=[input_df['gex'][
+                                                                                         'features'][
+                                                                                         each_gene_variance[0]] for
+                                                                                     each_gene_variance in
+                                                                                     gene_variance_sorted[
+                                                                                     :genes_most_variant]])
+
+    return feature_data_gene_variance_filtered
+
 def filter_ribo_mito_from_list(all_genes):
 
     # find ribosomal genes
@@ -991,8 +1017,9 @@ def filter_ribo_mito_from_list(all_genes):
 
     return keep_genes
 
+
 def calc_feat_sum_and_unique_count_across_cells(feat_data, inst_feat):
-    barcodes = feat_data[inst_feat]['barcodes']
+    barcodes = (feat_data[inst_feat]['barcodes'] if 'barcodes' in feat_data[inst_feat].keys() else feat_data[inst_feat].columns)
     mat = deepcopy(feat_data[inst_feat]['mat'])
 
     # sum umi of measured features
@@ -1007,3 +1034,61 @@ def calc_feat_sum_and_unique_count_across_cells(feat_data, inst_feat):
     inst_df = pd.concat([ser_sum, ser_count], axis=1)
 
     return inst_df
+
+
+def sample_meta(df_meta_ini, sample_name):
+    list_index = []
+    list_data = []
+
+    df_meta = deepcopy(df_meta_ini)
+
+    # proprtion of singlets
+    #########################
+    ser_cell_per = df_meta['cell-per-bead'].value_counts()
+
+    num_singlets = ser_cell_per.loc['singlet']
+    num_total = ser_cell_per.sum()
+
+    # number of singlets
+    list_index.append('number-singlets')
+    list_data.append(num_singlets)
+
+    # get singlets only
+    df_meta = df_meta[df_meta['cell-per-bead'] == 'singlet']
+
+    # proportion of dead cells
+    ##############################
+    ser_dead = df_meta['dead-cell-mito'].value_counts()
+    prop_dead = 1 - ser_dead['live-cell'] / ser_dead.sum()
+
+    list_index.append('proportion-dead')
+    list_data.append(prop_dead)
+
+    # assemble initial metadata series
+    ser_meta_ini = pd.Series(list_data, index=list_index)
+
+    # Calculate average metadata
+    meta_list = ['gex-umi-sum', 'gex-num-unique', 'mito-proportion-umi', 'Ribosomal-Avg', 'Mitochondrial-Avg']
+    ser_meta_mean = df_meta[meta_list].mean()
+
+    ser_meta = pd.concat([ser_meta_ini, ser_meta_mean])
+    ser_meta.name = sample_name
+
+    return ser_meta
+
+def join_lanes(directory_list):
+    for inst_type in ['gex', 'adt', 'hto', 'meta_cell']:
+        list_df = []
+        for inst_dir in directory_list:
+            inst_lane = inst_dir.split('-')[-1]
+            inst_file = inst_dir + '/' + inst_type + '.parquet'
+            if os.path.exists(inst_file):
+                inst_df = pd.read_parquet(inst_file)
+                list_df.append(inst_df)
+        if len(list_df)>0:
+            if 'meta' in inst_type:
+                df_merge = pd.concat(list_df, axis=0)
+            else:
+                df_merge = pd.concat(list_df, axis=1)
+
+            df_merge.to_parquet('../data/processed_data/merged_lanes/' + inst_type + '.parquet')
