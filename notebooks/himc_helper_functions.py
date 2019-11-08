@@ -12,7 +12,7 @@ import os
 import matplotlib.pyplot as plt
 
 def get_version():
-    print('0.6.2', 'rename fraction to proportion')
+    print('0.7.0', 'improving dehash plots')
 
 def make_dir(directory):
     if not os.path.exists(directory):
@@ -385,7 +385,7 @@ def calc_mito_gene_umi_proportion(df_gex, meta_cell, plot_mito=False, mito_thres
 
     return meta_cell
 
-def set_hto_thresh(df_hto, meta_hto, hto_name, max_plot_hto=7, thresh=1, ylim =100):
+def set_hto_thresh(df_hto, meta_hto, hto_name, xlim=7, thresh=1, ylim =100):
 
     if 'hto-threshold' not in meta_hto.columns.tolist():
         ser_thresh = pd.Series(np.nan, index=meta_hto.index)
@@ -394,7 +394,7 @@ def set_hto_thresh(df_hto, meta_hto, hto_name, max_plot_hto=7, thresh=1, ylim =1
 
     ser_hto = df_hto.loc[hto_name]
 
-    n, bins, patches = plt.hist(ser_hto, bins=100, range=(0, max_plot_hto))
+    n, bins, patches = plt.hist(ser_hto, bins=100, range=(0, xlim))
 
     colors = []
     for inst_bin in bins:
@@ -470,7 +470,7 @@ def ini_meta_gene(df_gex_ini):
 
     return meta_gene
 
-def assign_htos(df_hto_ini, meta_hto, meta_cell, sn_thresh):
+def assign_htos(df_hto_ini, meta_hto, meta_cell, sn_thresh, inf_replace=1000):
 
     ser_list = []
     df_hto = deepcopy(df_hto_ini)
@@ -537,12 +537,16 @@ def assign_htos(df_hto_ini, meta_hto, meta_cell, sn_thresh):
     df_comp = pd.concat([ser_first, ser_second], axis=1).transpose()
 
     # calculate signal-to-noise
-    sn_ratio = np.log2(df_comp.loc['first highest HTO']/df_comp.loc['second highest HTO'])
-    # replace nans with zeros (nans represent all zeros for htos)
-    sn_ratio = sn_ratio.fillna(0)
+    sn_ratio = df_comp.loc['first highest HTO']/df_comp.loc['second highest HTO']
+    meta_cell['hto-ash-sn'] = sn_ratio
+    # replace infinities with large number
+    sn_ratio = sn_ratio.replace(np.Inf, inf_replace)
 
-    # save to metadata
-    meta_cell['hto-log2-sn'] = sn_ratio
+    # calc ratio
+    sn_ratio_log2 = np.log2(sn_ratio)
+    # replace nans with zeros (nans represent all zeros for htos)
+    sn_ratio_log2 = sn_ratio_log2.fillna(0)
+    meta_cell['hto-ash-log2-sn'] = sn_ratio_log2
 
     # assign tentative sample
     list_samples = []
@@ -594,7 +598,7 @@ def assign_htos(df_hto_ini, meta_hto, meta_cell, sn_thresh):
 
     return meta_cell
 
-def plot_signal_vs_noise(df, alpha=0.25, s=10, hto_range=7, inf_replace=5):
+def plot_signal_vs_noise(df, alpha=0.25, s=10, hto_range=7, inf_replace=1000):
 
     fig, axes = plt.subplots(nrows=1, ncols=2)
 
