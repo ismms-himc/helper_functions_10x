@@ -346,13 +346,13 @@ def check_feature_data_size(feature_data):
 def calc_mito_gene_umi_proportion(df_gex, meta_cell, plot_mito=False, mito_thresh=0.9):
 
     # Removing Mitochondrial Genes
-    list_mito_genes = ['MTRNR2L11', 'MTRF1', 'MTRNR2L12', 'MTRNR2L13', 'MTRF1L', 'MTRNR2L6', 'MTRNR2L7',
-                    'MTRNR2L10', 'MTRNR2L8', 'MTRNR2L5', 'MTRNR2L1', 'MTRNR2L3', 'MTRNR2L4']
+    list_mito_genes = list(map(lambda x:x.lower(), ['MTRNR2L11', 'MTRF1', 'MTRNR2L12', 'MTRNR2L13', 'MTRF1L', 'MTRNR2L6', 'MTRNR2L7',
+                    'MTRNR2L10', 'MTRNR2L8', 'MTRNR2L5', 'MTRNR2L1', 'MTRNR2L3', 'MTRNR2L4']))
 
 
     all_genes = df_gex.index.tolist()
-    mito_genes = [x for x in all_genes if 'MT-' == x[:3] or
-                 x.split('_')[0] in list_mito_genes]
+    mito_genes = [x for x in all_genes if 'mt-' == x[:3].lower() or
+                 x.split('_')[0].lower() in list_mito_genes]
 
 
     mito_sum = df_gex.loc[mito_genes].sum(axis=0)
@@ -632,8 +632,8 @@ def filter_ribo_mito_from_gex(df, meta_cell):
 
     all_genes = df.index.tolist()
 
-    ribo_rpl = [x for x in all_genes if 'RPL' in x]
-    ribo_rps = [x for x in all_genes if 'RPS' in x]
+    ribo_rpl = [x for x in all_genes if x.lower().startswith('rpl')]
+    ribo_rps = [x for x in all_genes if x.lower().startswith('rps')]
     ribo_genes = ribo_rpl + ribo_rps
 
     # calculate average ribo gene expression
