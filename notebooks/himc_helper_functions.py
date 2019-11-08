@@ -569,7 +569,7 @@ def assign_htos(df_hto_ini, meta_hto, meta_cell, sn_thresh, inf_replace=1000):
     cells = meta_cell.index.tolist()
     for inst_cell in cells:
         inst_type = meta_cell.loc[inst_cell, 'dehash-thresh']
-        inst_sn = meta_cell.loc[inst_cell, 'hto-log2-sn']
+        inst_sn = meta_cell.loc[inst_cell, 'hto-ash-log2-sn']
         inst_max_hto = meta_cell.loc[inst_cell, 'hto-max']
 
         # change singlet to multiplet if low sn
