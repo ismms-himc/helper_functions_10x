@@ -12,7 +12,7 @@ import os
 import matplotlib.pyplot as plt
 
 def get_version():
-    print('0.7.0', 'improving dehash plots')
+    print('0.7.0', 'working on kb_tools loading')
 
 def make_dir(directory):
     if not os.path.exists(directory):
@@ -324,8 +324,10 @@ def filter_barcodes_by_umi(feature_data, feature_type, min_umi=0, max_umi=1e8,
 
     return filtered_data
 
-def convert_to_dense(feat_data):
-    df = {}
+def convert_to_dense(feat_data, df=None):
+    # initialize df if necessary
+    if df is None:
+        df = {}
     for inst_feat in feat_data:
         mat = feat_data[inst_feat]['mat']
         rows = feat_data[inst_feat]['features']
