@@ -12,7 +12,7 @@ import os
 import matplotlib.pyplot as plt
 
 def get_version():
-    print('0.7.0', 'working on kb_tools loading')
+    print('0.7.0', 'load kb_tools velocity')
 
 def make_dir(directory):
     if not os.path.exists(directory):
@@ -650,6 +650,8 @@ def filter_ribo_mito_from_gex(df, meta_cell):
 
     df = df.loc[keep_genes]
 
+    print(df.shape)
+
     # Removing Mitochondrial Genes
     list_mito_genes = ['MTRNR2L11', 'MTRF1', 'MTRNR2L12', 'MTRNR2L13', 'MTRF1L', 'MTRNR2L6', 'MTRNR2L7',
                     'MTRNR2L10', 'MTRNR2L8', 'MTRNR2L5', 'MTRNR2L1', 'MTRNR2L3', 'MTRNR2L4']
@@ -668,6 +670,8 @@ def filter_ribo_mito_from_gex(df, meta_cell):
     keep_genes = [x for x in all_genes if x not in mito_genes]
 
     df = df.loc[keep_genes]
+
+    print(df.shape)
 
     # calculate average ribo gene expression
     df_meta = pd.concat([ser_ribo, ser_mito], axis=1)
@@ -1098,3 +1102,89 @@ def join_lanes(directory_list):
                 df_merge = pd.concat(list_df, axis=1)
 
             df_merge.to_parquet('../data/processed_data/merged_lanes/' + inst_type + '.parquet')
+
+def sample_meta(df_meta_ini, sample_name):
+
+    list_index = []
+    list_data = []
+
+    df_meta = deepcopy(df_meta_ini)
+
+    # proprtion of singlets
+    #########################
+    ser_cell_per = df_meta['cell-per-bead'].value_counts()
+
+    num_singlets = ser_cell_per.loc['singlet']
+    num_total = ser_cell_per.sum()
+
+    # number of singlets
+    list_index.append('number-singlets')
+    list_data.append(num_singlets)
+
+    # get singlets only
+    df_meta = df_meta[df_meta['cell-per-bead'] == 'singlet']
+
+    # proportion of dead cells
+    ##############################
+    ser_dead = df_meta['dead-cell-mito'].value_counts()
+    prop_dead = ser_dead.loc['dead-cell']/ser_dead.sum()
+
+    list_index.append('proportion-dead')
+    list_data.append(prop_dead)
+
+    # assemble initial metadata series
+    ser_meta_ini = pd.Series(list_data, index=list_index)
+
+    # Calculate average metadata
+    meta_list = ['gex-umi-sum', 'gex-num-unique', 'mito-proportion-umi', 'Ribosomal-Avg', 'Mitochondrial-Avg']
+    ser_meta_mean = df_meta[meta_list].mean()
+
+    ser_meta = pd.concat([ser_meta_ini, ser_meta_mean])
+    ser_meta.name = sample_name
+
+    return ser_meta
+
+
+def load_kb_vel_feature_matrix(inst_path, inst_sample, to_csc=True, given_hto_list=None):
+
+    # Load barcodes
+    #################
+    filename = inst_path + inst_sample + '.barcodes.txt'
+    f = open(filename, 'r')
+    lines = f.readlines()
+    f.close()
+
+    barcodes = []
+    for inst_bc in lines:
+        inst_bc = inst_bc.strip().split('\t')
+
+        barcodes.append(inst_bc[0])
+
+
+    # Load genes
+    #################
+    filename = inst_path + inst_sample + '.genes.txt'
+    f = open(filename, 'r')
+    lines = f.readlines()
+    f.close()
+
+    genes = []
+    for inst_gene in lines:
+        inst_gene = inst_gene.strip().split('\t')
+
+        genes.append(inst_gene[0])
+
+    # Load Matrix
+    #################
+    mat = io.mmread(inst_path + inst_sample +'.mtx').transpose()
+    mat = mat.tocsc()
+
+    print(len(genes), len(barcodes), mat.shape)
+
+    feature_data = {}
+    feature_data['gex'] = {}
+    feature_data['gex']['mat'] = mat
+    feature_data['gex']['features'] = genes
+    feature_data['gex']['barcodes'] = barcodes
+
+    return feature_data
