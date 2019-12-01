@@ -99,3 +99,54 @@ Embedding cell metadata into the MTX file format could be done (by treating nume
 5. Add random noise to ADT and HTO data to 2 decimal places for visualization purposes
 6. Include top 500 differentially expressed genes, excluding mitochondiral or ribosomal genes
 7. By default, merge data from replicate lanes but add `lane` as a feature to indicate which cells came from which lane
+
+
+# Sharing 10X Genomics Data
+This is the rough layout of how we will deliver data for a single loading sample to users. 
+
+Loading-Sample name: "SAMPLE"
+
+Directory Structure Layout
+
+```
+SAMPLE_Shared_10X_Count_Data/
+
+  ############################################
+  # Part 1: Cell Ranger Outputs
+  ############################################
+  
+  cell_ranger_outputs/
+    metrics_summary.csv
+    web_summary.html
+    
+  raw_feature_bc_matrix/
+    barcodes.tsv.gz
+    features.tsv.gz
+    matrix.mtx.gz
+    
+  filtered_feature_bc_matrix/
+    barcodes.tsv.gz
+    features.tsv.gz
+    matrix.mtx.gz
+  
+  vdj/
+    all_contig_annotations.csv
+    filtered_contig_annotations.csv
+    metrics_summary.csv
+    web_summary.html
+    
+  ############################################
+  # Part 2: HIMC Metadata
+  ############################################    
+  
+  himc_outputs/
+    meta_cell.csv
+    meta_sample.csv
+    meta_hto.csv
+    meta_adt.csv
+    meta_gex.csv (probably not going to include)
+    0.1_SAMPLE_Pre-Processing_Notebook.html
+  
+```
+
+The directory `SAMPLE_10X_Count_Data` will be zipped and a single pre-signed URL will be generated and shared with the uer. Two things should be take note of: 1) the name of the directory includex the loading sample name, and 2) the loading sample meta-data is included in the directory
