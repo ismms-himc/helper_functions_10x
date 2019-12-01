@@ -89,3 +89,13 @@ Embedding cell metadata into the MTX file format could be done (by treating nume
 
 * CytoBank Format
     * merge of top var gex (w/o ribo/mito)
+
+### Cytobank Upload Format
+
+1. General matrix format is 1 row per cell and 1 column per feature
+2. First column should be a cell index, with the column header "cell_index", incremented by 0.01
+3. Features should be indicated by the prefix `ADT_`, `HTO_` or `GEX_`
+4. Any derived/calculated data will include `der` after after the feature type. By default, always include `GEX_der_umi_sum`, `GEX_der_unique_gene_count`, `GEX_der_mito_proportion` (proprtion of all gex umi that derive from mitochondrial genes)  `GEX_der_mito_avg` (avg umi expression of all mitochondrial genes), `GEX_der_ribo_avg` (avg umi expression of all ribosomal genes), `HTO_der_umi_sum`, `ADT_der_umi_sum`
+5. Add random noise to ADT and HTO data to 2 decimal places for visualization purposes
+6. Include top 500 differentially expressed genes, excluding mitochondiral or ribosomal genes
+7. By default, merge data from replicate lanes but add `lane` as a feature to indicate which cells came from which lane
