@@ -581,7 +581,7 @@ def make_cyto_export(df, num_var_genes=500):
                  'gex-umi-sum',
                  'adt-umi-sum',
                  'num_expressed_genes',
-                 'hto-log2-sn',
+                 'hto-sn',
                  'mito-fraction-umi',
                  'gex-umi-sum-no-ribo-mito',
                  'num_expressed_genes_no-ribo-mito']
@@ -1082,11 +1082,6 @@ def calc_s2n_and_s2t(df_hto, meta_hto, meta_cell, inf_replace):
     meta_cell['hto-sn'] = sn_ratio
     # replace infinities with large number
     sn_ratio = sn_ratio.replace(np.Inf, inf_replace)
-    # calc signal-to-noise log2 ratio
-    sn_ratio_log2 = np.log2(sn_ratio)
-    # replace nans with zeros (nans represent all zeros for htos)
-    sn_ratio_log2 = sn_ratio_log2.fillna(0)
-    meta_cell['hto-log2-sn'] = sn_ratio_log2
 
     # calc signal-to-threshold
     ###########################
@@ -1095,11 +1090,6 @@ def calc_s2n_and_s2t(df_hto, meta_hto, meta_cell, inf_replace):
     meta_cell['hto-st'] = st_ratio
     # replace infinities with large number
     st_ratio = st_ratio.replace(np.Inf, inf_replace)
-    # calc signal-to-noise log2 ratio
-    st_ratio_log2 = np.log2(st_ratio)
-    # replace nans with zeros (nans represent all zeros for htos)
-    st_ratio_log2 = st_ratio_log2.fillna(0)
-    meta_cell['hto-log2-st'] = st_ratio_log2
 
     return meta_cell
 
@@ -1152,7 +1142,7 @@ def assign_htos(df_hto, meta_hto, meta_cell, sn_thresh, inf_replace=1000):
     cells = meta_cell.index.tolist()
     for inst_cell in cells:
         inst_type = meta_cell.loc[inst_cell, 'dehash-thresh']
-        inst_sn = meta_cell.loc[inst_cell, 'hto-log2-sn']
+        inst_sn = meta_cell.loc[inst_cell, 'hto-sn']
         inst_max_hto = meta_cell.loc[inst_cell, 'hto-max-name']
 
         # change singlet to multiplet if low sn
