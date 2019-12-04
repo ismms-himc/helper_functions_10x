@@ -347,10 +347,16 @@ def check_feature_data_size(feature_data):
 
 def get_mito_genes(gene_list):
     # Removing Mitochondrial Genes
-    list_mito_genes = list(map(lambda x:x.lower(), ['MTRNR2L11', 'MTRF1', 'MTRNR2L12', 'MTRNR2L13', 'MTRF1L', 'MTRNR2L6', 'MTRNR2L7',
-                    'MTRNR2L10', 'MTRNR2L8', 'MTRNR2L5', 'MTRNR2L1', 'MTRNR2L3', 'MTRNR2L4']))
-    return [x for x in gene_list if 'mt-' == x[:3].lower() or
+    ini_mito_list = ['MTRNR2L11', 'MTRF1', 'MTRNR2L12', 'MTRNR2L13', 'MTRF1L',
+                     'MTRNR2L6', 'MTRNR2L7','MTRNR2L10', 'MTRNR2L8', 'MTRNR2L5',
+                     'MTRNR2L1', 'MTRNR2L3', 'MTRNR2L4']
+
+    list_mito_genes = list(map(lambda x:x.lower(), ini_mito_list))
+
+    found_mito_genes = [x for x in gene_list if 'mt-' == x[:3].lower() or
                  x.split('_')[0].lower() in list_mito_genes]
+
+    return found_mito_genes
 
 def calc_mito_gene_umi_proportion(df_gex, meta_cell, plot_mito=False, mito_thresh=0.9):
 
