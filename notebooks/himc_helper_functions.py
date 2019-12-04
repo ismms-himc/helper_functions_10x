@@ -505,7 +505,6 @@ def assign_htos(df_hto, meta_hto, meta_cell, sn_thresh, inf_replace=1000):
         # find cells that are positive for this HTO
         pos_hto = inst_ser[inst_ser==1].index.tolist()
 
-
     # generate binarized dataframe
     df_binary = pd.concat(ser_list, axis=1).transpose()
 
@@ -532,11 +531,15 @@ def assign_htos(df_hto, meta_hto, meta_cell, sn_thresh, inf_replace=1000):
 
     # find the highest hto
     ser_max_hto = df_hto.idxmax(axis=0)
-    meta_cell['hto-max'] = ser_max_hto
+    meta_cell['hto-max-name'] = ser_max_hto
 
-    # calc signal vs noise
+    # signal to noise (highest vs second highest)
+    ################################################
+    # do not use ash data, calc signal to noise on HTO UMI data
+
     list_first = []
     list_second = []
+    list_thresh = []
     list_cells = []
 
     for inst_cell in df_hto.columns.tolist():
@@ -544,35 +547,56 @@ def assign_htos(df_hto, meta_hto, meta_cell, sn_thresh, inf_replace=1000):
         inst_first  = inst_ser.get_values()[0]
         inst_second = inst_ser.get_values()[1]
 
+
+        inst_max_hto_name = ser_max_hto[inst_cell]
+        inst_max_hto_thresh = meta_hto['hto-threshold-umi'][inst_max_hto_name]
+
         list_first.append(inst_first)
         list_second.append(inst_second)
+        list_thresh.append(inst_max_hto_thresh)
         list_cells.append(inst_cell)
 
     ser_first  = pd.Series(data=list_first,  index=list_cells, name='first highest HTO')
     ser_second = pd.Series(data=list_second, index=list_cells, name='second highest HTO')
+    ser_thresh = pd.Series(data=list_thresh, index=list_cells, name='threshold HTO')
 
-    df_comp = pd.concat([ser_first, ser_second], axis=1).transpose()
 
-    # calculate signal-to-noise
+    df_comp = pd.concat([ser_first, ser_second, ser_thresh], axis=1).transpose()
+
+    meta_cell['hto-max-umi'] = ser_first
+
+    # calc signal-to-noise
     sn_ratio = df_comp.loc['first highest HTO']/df_comp.loc['second highest HTO']
     meta_cell['hto-ash-sn'] = sn_ratio
     # replace infinities with large number
     sn_ratio = sn_ratio.replace(np.Inf, inf_replace)
-
-    # calc ratio
+    # calc signal-to-noise log2 ratio
     sn_ratio_log2 = np.log2(sn_ratio)
     # replace nans with zeros (nans represent all zeros for htos)
     sn_ratio_log2 = sn_ratio_log2.fillna(0)
     meta_cell['hto-ash-log2-sn'] = sn_ratio_log2
 
-    # assign tentative sample
+
+    # calc signal-to-threshold
+    sn_ratio = df_comp.loc['first highest HTO']/df_comp.loc['threshold HTO']
+    meta_cell['hto-ash-st'] = sn_ratio
+    # replace infinities with large number
+    sn_ratio = sn_ratio.replace(np.Inf, inf_replace)
+    # calc signal-to-noise log2 ratio
+    sn_ratio_log2 = np.log2(sn_ratio)
+    # replace nans with zeros (nans represent all zeros for htos)
+    sn_ratio_log2 = sn_ratio_log2.fillna(0)
+    meta_cell['hto-ash-log2-st'] = sn_ratio_log2
+
+    # Assign Samples
+    ######################
     list_samples = []
     for inst_cell in meta_cell.index.tolist():
 
         inst_type = meta_cell.loc[inst_cell, 'dehash-thresh']
 
         if inst_type == 'singlet':
-            inst_hto = meta_cell.loc[inst_cell, 'hto-max']
+            inst_hto = meta_cell.loc[inst_cell, 'hto-max-name']
             inst_sample = meta_hto.loc[inst_hto]['Sample']
         else:
             inst_sample = 'N.A.'
@@ -587,7 +611,7 @@ def assign_htos(df_hto, meta_hto, meta_cell, sn_thresh, inf_replace=1000):
     for inst_cell in cells:
         inst_type = meta_cell.loc[inst_cell, 'dehash-thresh']
         inst_sn = meta_cell.loc[inst_cell, 'hto-ash-log2-sn']
-        inst_max_hto = meta_cell.loc[inst_cell, 'hto-max']
+        inst_max_hto = meta_cell.loc[inst_cell, 'hto-max-name']
 
         # change singlet to multiplet if low sn
         if inst_type == 'singlet':
@@ -613,7 +637,7 @@ def assign_htos(df_hto, meta_hto, meta_cell, sn_thresh, inf_replace=1000):
                 meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'multiplet'
                 meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = 'N.A.'
 
-    return meta_cell, df_binary
+    return meta_cell
 
 def plot_signal_vs_noise(df, alpha=0.25, s=10, hto_range=7, inf_replace=1000):
 
@@ -706,70 +730,6 @@ def add_cats_from_meta(barcodes, df_meta, add_cat_list):
 
     return new_cols
 
-
-def make_dehash_meta_cell(df, ct_list, hto_names, ct_max_hto, sn_ratio_all, sn_singlet=1, sn_multiplet=1, sn_debris=1):
-
-    inst_list = {}
-    for inst_type in ['sample', 'hto-assigned', 'hto-max', 'sn-ratio']:
-        inst_list[inst_type] = []
-
-    rows = df['gex'].columns.tolist()
-    for inst_col in df['gex'].columns.tolist():
-
-        hto_cat = ''
-        sample_cat = ''
-        max_hto = ct_max_hto[inst_col]
-
-        # signal-to-noise threshold
-        inst_sn = sn_ratio_all[inst_col]
-
-        # singlet
-        if inst_col in ct_list['singlets']:
-
-            if inst_sn >= sn_singlet:
-                hto_cat = max_hto
-                sample_cat = hto_names[hto_cat]
-
-            # deemed a doublet based on signal-to-noise threshold
-            else:
-                hto_cat = 'multiplet-sn-ratio'
-                sample_cat = 'N.A.'
-
-        elif inst_col in ct_list['debris']:
-
-            if inst_sn >= sn_debris:
-                hto_cat = max_hto
-                sample_cat = hto_names[hto_cat]
-            else:
-                hto_cat = 'debris'
-                sample_cat = 'N.A.'
-
-        elif inst_col in ct_list['multiplets']:
-
-            # rescue multiplet to singlet if above signal-to-noise threshold
-            if inst_sn >= sn_multiplet:
-                hto_cat = max_hto
-                sample_cat = hto_names[hto_cat]
-            else:
-                hto_cat = 'multiplet'
-                sample_cat = 'N.A.'
-
-
-        # save to lists
-        inst_list['hto-assigned'].append(hto_cat)
-        inst_list['hto-max'].append(max_hto)
-        inst_list['sample'].append(sample_cat)
-        inst_list['sn-ratio'].append(sn_ratio_all[inst_col])
-
-    ser_list = []
-    for inst_type in ['sample', 'hto-assigned', 'hto-max', 'sn-ratio']:
-        inst_ser = pd.Series(inst_list[inst_type], name=inst_type, index=rows)
-        ser_list.append(inst_ser)
-
-    df_meta = pd.concat(ser_list, axis=1)
-
-
-    return df_meta
 
 def make_cyto_export(df, num_var_genes=500):
 
@@ -1235,3 +1195,4 @@ def drop_debris_gex_hto_ash(df_meta, gex_ash_thresh=None, hto_ash_thresh=None):
                          ylim=(0,10), xlim=(0,10), c=color_list)
 
     return keep_barcodes
+
