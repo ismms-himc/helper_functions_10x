@@ -416,7 +416,9 @@ def set_hto_thresh(df_hto, meta_hto, hto_name, xlim=7, thresh=1, ylim =100):
     for patch, color in zip(patches, colors):
         patch.set_facecolor(color)
 
-    meta_hto.loc[hto_name, 'hto-threshold'] = thresh
+    meta_hto.loc[hto_name, 'hto-threshold-ash'] = thresh
+    meta_hto.loc[hto_name, 'hto-threshold-umi'] = np.sinh(thresh) * 5
+
     plt.ylim((0,ylim))
 
 def ini_meta_cell(df):
@@ -490,11 +492,13 @@ def assign_htos(df_hto_ini, meta_hto, meta_cell, sn_thresh, inf_replace=1000):
         inst_ser = deepcopy(df_hto.loc[inst_row])
 
         # load threshold level for this HTO
-        inst_thresh = meta_hto.loc[inst_row, 'hto-threshold']
+        inst_thresh = meta_hto.loc[inst_row, 'hto-threshold-ash']
 
         # binarize HTO values about threshold
         inst_ser[inst_ser < inst_thresh] = 0
         inst_ser[inst_ser >= inst_thresh] = 1
+
+        print(inst_thresh)
 
         # assemble list of series to make dataframe later
         ser_list.append(inst_ser)
@@ -512,6 +516,11 @@ def assign_htos(df_hto_ini, meta_hto, meta_cell, sn_thresh, inf_replace=1000):
     ct_list['debris']    = ser_sum[ser_sum == 0].index.tolist()
     ct_list['singlet']   = ser_sum[ser_sum == 1].index.tolist()
     ct_list['multiplet'] = ser_sum[ser_sum > 1].index.tolist()
+
+    print(ct_list.keys())
+    print(len(ct_list['debris']))
+    print(len(ct_list['singlet']))
+    print(len(ct_list['multiplet']))
 
     # initialize dehash-thresh
     if 'dehash-thresh' not in meta_cell.columns.tolist():
@@ -605,7 +614,7 @@ def assign_htos(df_hto_ini, meta_hto, meta_cell, sn_thresh, inf_replace=1000):
                 meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'multiplet'
                 meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = 'N.A.'
 
-    return meta_cell
+    return meta_cell, df_binary
 
 def plot_signal_vs_noise(df, alpha=0.25, s=10, hto_range=7, inf_replace=1000):
 
@@ -1210,7 +1219,6 @@ def drop_debris_gex_hto_ash(df_meta, gex_ash_thresh=None, hto_ash_thresh=None):
     hto_pass = ser_hto[ser_hto > 4.5].index.tolist()
 
     print('gex thresh UMI-ash: ', gex_ash_thresh, ' gex thresh UMI: ', gex_thresh.round(0))
-
     print('hto thresh UMI-ash: ', hto_ash_thresh, ' hto thresh UMI: ', hto_thresh.round(0))
 
     print('gex keep: ', len(gex_pass))
