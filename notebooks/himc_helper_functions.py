@@ -481,15 +481,16 @@ def ini_meta_gene(df_gex_ini):
 
     return meta_gene
 
-def assign_htos(df_hto_ini, meta_hto, meta_cell, sn_thresh, inf_replace=1000):
+def assign_htos(df_hto, meta_hto, meta_cell, sn_thresh, inf_replace=1000):
 
     ser_list = []
-    df_hto = deepcopy(df_hto_ini)
+    df_hto_ash = np.arcsinh(df_hto/5)
+    df_hto_tmp = deepcopy(df_hto_ash)
 
-    for inst_row in df_hto.index.tolist():
+    for inst_row in df_hto_tmp.index.tolist():
 
         # get data for a HTO
-        inst_ser = deepcopy(df_hto.loc[inst_row])
+        inst_ser = deepcopy(df_hto_tmp.loc[inst_row])
 
         # load threshold level for this HTO
         inst_thresh = meta_hto.loc[inst_row, 'hto-threshold-ash']
@@ -497,8 +498,6 @@ def assign_htos(df_hto_ini, meta_hto, meta_cell, sn_thresh, inf_replace=1000):
         # binarize HTO values about threshold
         inst_ser[inst_ser < inst_thresh] = 0
         inst_ser[inst_ser >= inst_thresh] = 1
-
-        print(inst_thresh)
 
         # assemble list of series to make dataframe later
         ser_list.append(inst_ser)
@@ -517,10 +516,10 @@ def assign_htos(df_hto_ini, meta_hto, meta_cell, sn_thresh, inf_replace=1000):
     ct_list['singlet']   = ser_sum[ser_sum == 1].index.tolist()
     ct_list['multiplet'] = ser_sum[ser_sum > 1].index.tolist()
 
-    print(ct_list.keys())
-    print(len(ct_list['debris']))
-    print(len(ct_list['singlet']))
-    print(len(ct_list['multiplet']))
+
+    print('thresh-only debris', len(ct_list['debris']))
+    print('thresh-only singlets', len(ct_list['singlet']))
+    print('thresh-only multiplets', len(ct_list['multiplet']))
 
     # initialize dehash-thresh
     if 'dehash-thresh' not in meta_cell.columns.tolist():
