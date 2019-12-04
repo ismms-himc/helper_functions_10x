@@ -481,163 +481,7 @@ def ini_meta_gene(df_gex_ini):
 
     return meta_gene
 
-def assign_htos(df_hto, meta_hto, meta_cell, sn_thresh, inf_replace=1000):
 
-    ser_list = []
-    df_hto_ash = np.arcsinh(df_hto/5)
-    df_hto_tmp = deepcopy(df_hto_ash)
-
-    for inst_row in df_hto_tmp.index.tolist():
-
-        # get data for a HTO
-        inst_ser = deepcopy(df_hto_tmp.loc[inst_row])
-
-        # load threshold level for this HTO
-        inst_thresh = meta_hto.loc[inst_row, 'hto-threshold-ash']
-
-        # binarize HTO values about threshold
-        inst_ser[inst_ser < inst_thresh] = 0
-        inst_ser[inst_ser >= inst_thresh] = 1
-
-        # assemble list of series to make dataframe later
-        ser_list.append(inst_ser)
-
-        # find cells that are positive for this HTO
-        pos_hto = inst_ser[inst_ser==1].index.tolist()
-
-    # generate binarized dataframe
-    df_binary = pd.concat(ser_list, axis=1).transpose()
-
-    # find singlets
-    ser_sum = df_binary.sum(axis=0)
-    ct_list = {}
-    ct_list['debris']    = ser_sum[ser_sum == 0].index.tolist()
-    ct_list['singlet']   = ser_sum[ser_sum == 1].index.tolist()
-    ct_list['multiplet'] = ser_sum[ser_sum > 1].index.tolist()
-
-
-    print('thresh-only debris', len(ct_list['debris']))
-    print('thresh-only singlets', len(ct_list['singlet']))
-    print('thresh-only multiplets', len(ct_list['multiplet']))
-
-    # initialize dehash-thresh
-    if 'dehash-thresh' not in meta_cell.columns.tolist():
-        ser_type = pd.Series(np.nan, index=meta_cell.index)
-        meta_cell['dehash-thresh'] = ser_type
-
-    # save dehash-thresh
-    for inst_type in ct_list:
-        meta_cell.loc[ct_list[inst_type], 'dehash-thresh'] = inst_type
-
-    # find the highest hto
-    ser_max_hto = df_hto.idxmax(axis=0)
-    meta_cell['hto-max-name'] = ser_max_hto
-
-    # signal to noise (highest vs second highest)
-    ################################################
-    # do not use ash data, calc signal to noise on HTO UMI data
-
-    list_first = []
-    list_second = []
-    list_thresh = []
-    list_cells = []
-
-    for inst_cell in df_hto.columns.tolist():
-        inst_ser = df_hto[inst_cell].sort_values(ascending=False)
-        inst_first  = inst_ser.get_values()[0]
-        inst_second = inst_ser.get_values()[1]
-
-
-        inst_max_hto_name = ser_max_hto[inst_cell]
-        inst_max_hto_thresh = meta_hto['hto-threshold-umi'][inst_max_hto_name]
-
-        list_first.append(inst_first)
-        list_second.append(inst_second)
-        list_thresh.append(inst_max_hto_thresh)
-        list_cells.append(inst_cell)
-
-    ser_first  = pd.Series(data=list_first,  index=list_cells, name='first highest HTO')
-    ser_second = pd.Series(data=list_second, index=list_cells, name='second highest HTO')
-    ser_thresh = pd.Series(data=list_thresh, index=list_cells, name='threshold HTO')
-
-
-    df_comp = pd.concat([ser_first, ser_second, ser_thresh], axis=1).transpose()
-
-    meta_cell['hto-max-umi'] = ser_first
-
-    # calc signal-to-noise
-    sn_ratio = df_comp.loc['first highest HTO']/df_comp.loc['second highest HTO']
-    meta_cell['hto-ash-sn'] = sn_ratio
-    # replace infinities with large number
-    sn_ratio = sn_ratio.replace(np.Inf, inf_replace)
-    # calc signal-to-noise log2 ratio
-    sn_ratio_log2 = np.log2(sn_ratio)
-    # replace nans with zeros (nans represent all zeros for htos)
-    sn_ratio_log2 = sn_ratio_log2.fillna(0)
-    meta_cell['hto-ash-log2-sn'] = sn_ratio_log2
-
-
-    # calc signal-to-threshold
-    sn_ratio = df_comp.loc['first highest HTO']/df_comp.loc['threshold HTO']
-    meta_cell['hto-ash-st'] = sn_ratio
-    # replace infinities with large number
-    sn_ratio = sn_ratio.replace(np.Inf, inf_replace)
-    # calc signal-to-noise log2 ratio
-    sn_ratio_log2 = np.log2(sn_ratio)
-    # replace nans with zeros (nans represent all zeros for htos)
-    sn_ratio_log2 = sn_ratio_log2.fillna(0)
-    meta_cell['hto-ash-log2-st'] = sn_ratio_log2
-
-    # Assign Samples
-    ######################
-    list_samples = []
-    for inst_cell in meta_cell.index.tolist():
-
-        inst_type = meta_cell.loc[inst_cell, 'dehash-thresh']
-
-        if inst_type == 'singlet':
-            inst_hto = meta_cell.loc[inst_cell, 'hto-max-name']
-            inst_sample = meta_hto.loc[inst_hto]['Sample']
-        else:
-            inst_sample = 'N.A.'
-
-        list_samples.append(inst_sample)
-
-    ser_sample = pd.Series(list_samples, index=meta_cell.index.tolist())
-    meta_cell['Sample-thresh'] = ser_sample
-
-    # signal-to-noise adjustment
-    cells = meta_cell.index.tolist()
-    for inst_cell in cells:
-        inst_type = meta_cell.loc[inst_cell, 'dehash-thresh']
-        inst_sn = meta_cell.loc[inst_cell, 'hto-ash-log2-sn']
-        inst_max_hto = meta_cell.loc[inst_cell, 'hto-max-name']
-
-        # change singlet to multiplet if low sn
-        if inst_type == 'singlet':
-            if inst_sn < sn_thresh['singlets']:
-                # convert to multiplet
-                meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'multiplet'
-                meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = 'N.A.'
-            else:
-                meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'singlet'
-                meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = meta_hto.loc[inst_max_hto]['Sample']
-        elif inst_type == 'debris':
-            if inst_sn >= sn_thresh['debris']:
-                meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'singlet'
-                meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = meta_hto.loc[inst_max_hto]['Sample']
-            else:
-                meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'debris'
-                meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = 'N.A.'
-        elif inst_type == 'multiplet':
-            if inst_sn >= sn_thresh['multiplets']:
-                meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'singlet'
-                meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = meta_hto.loc[inst_max_hto]['Sample']
-            else:
-                meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'multiplet'
-                meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = 'N.A.'
-
-    return meta_cell
 
 def plot_signal_vs_noise(df, alpha=0.25, s=10, hto_range=7, inf_replace=1000):
 
@@ -1196,3 +1040,182 @@ def drop_debris_gex_hto_ash(df_meta, gex_ash_thresh=None, hto_ash_thresh=None):
 
     return keep_barcodes
 
+def make_ct_list(df_hto, meta_hto):
+
+    '''assign cells to debris/singlet/multiplet based on threshold only (ash normalized)'''
+
+    ser_list = []
+    df_hto_tmp = deepcopy(np.arcsinh(df_hto/5))
+
+    for inst_row in df_hto_tmp.index.tolist():
+
+        # get data for a HTO
+        inst_ser = deepcopy(df_hto_tmp.loc[inst_row])
+
+        # load threshold level for this HTO
+        inst_thresh = meta_hto.loc[inst_row, 'hto-threshold-ash']
+
+        # binarize HTO values about threshold
+        inst_ser[inst_ser < inst_thresh] = 0
+        inst_ser[inst_ser >= inst_thresh] = 1
+
+        # assemble list of series to make dataframe later
+        ser_list.append(inst_ser)
+
+        # find cells that are positive for this HTO
+        pos_hto = inst_ser[inst_ser==1].index.tolist()
+
+    # generate binarized dataframe
+    df_binary = pd.concat(ser_list, axis=1).transpose()
+
+    # find singlets
+    ser_sum = df_binary.sum(axis=0)
+    ct_list = {}
+    ct_list['debris']    = ser_sum[ser_sum == 0].index.tolist()
+    ct_list['singlet']   = ser_sum[ser_sum == 1].index.tolist()
+    ct_list['multiplet'] = ser_sum[ser_sum > 1].index.tolist()
+
+    return ct_list
+
+def calc_s2n_and_s2t(df_hto, meta_hto, meta_cell, inf_replace):
+
+    # signal-to-noise refers to the highest vs second highest HTO
+    #
+    # signal-to-threshold refers to the highest HTO vs the
+    # manually set threshold for that HTO
+
+    # do not use ash data, calc signal to noise on HTO UMI data
+    # find the highest hto
+    ser_max_hto = df_hto.idxmax(axis=0)
+    meta_cell['hto-max-name'] = ser_max_hto
+
+    list_first = []
+    list_second = []
+    list_thresh = []
+    list_cells = []
+
+    for inst_cell in df_hto.columns.tolist():
+        inst_ser = df_hto[inst_cell].sort_values(ascending=False)
+        inst_first  = inst_ser.get_values()[0]
+        inst_second = inst_ser.get_values()[1]
+
+
+        inst_max_hto_name = ser_max_hto[inst_cell]
+        inst_max_hto_thresh = meta_hto['hto-threshold-umi'][inst_max_hto_name]
+
+        list_first.append(inst_first)
+        list_second.append(inst_second)
+        list_thresh.append(inst_max_hto_thresh)
+        list_cells.append(inst_cell)
+
+    ser_first  = pd.Series(data=list_first,  index=list_cells, name='first highest HTO')
+    ser_second = pd.Series(data=list_second, index=list_cells, name='second highest HTO')
+    ser_thresh = pd.Series(data=list_thresh, index=list_cells, name='threshold HTO')
+
+    # df_comp = pd.concat([ser_first, ser_second, ser_thresh], axis=1).transpose()
+
+    meta_cell['hto-max-umi'] = ser_first
+
+    # calc signal-to-noise
+    ###########################
+    # sn_ratio = df_comp.loc['first highest HTO']/df_comp.loc['second highest HTO']
+    sn_ratio = ser_first/ser_second
+    meta_cell['hto-sn'] = sn_ratio
+    # replace infinities with large number
+    sn_ratio = sn_ratio.replace(np.Inf, inf_replace)
+    # calc signal-to-noise log2 ratio
+    sn_ratio_log2 = np.log2(sn_ratio)
+    # replace nans with zeros (nans represent all zeros for htos)
+    sn_ratio_log2 = sn_ratio_log2.fillna(0)
+    meta_cell['hto-log2-sn'] = sn_ratio_log2
+
+    # calc signal-to-threshold
+    ###########################
+    # sn_ratio = df_comp.loc['first highest HTO']/df_comp.loc['threshold HTO']
+    st_ratio = ser_first/ser_thresh
+    meta_cell['hto-st'] = st_ratio
+    # replace infinities with large number
+    st_ratio = st_ratio.replace(np.Inf, inf_replace)
+    # calc signal-to-noise log2 ratio
+    st_ratio_log2 = np.log2(st_ratio)
+    # replace nans with zeros (nans represent all zeros for htos)
+    st_ratio_log2 = st_ratio_log2.fillna(0)
+    meta_cell['hto-log2-st'] = st_ratio_log2
+
+    return meta_cell
+
+def assign_htos(df_hto, meta_hto, meta_cell, sn_thresh, inf_replace=1000):
+
+
+    # assign cells to debris/singlet/multiplet based on threshold only (ash normalized)
+    ######################################################################################
+    ct_list = make_ct_list(df_hto, meta_hto)
+
+    print('thresh-only debris', len(ct_list['debris']))
+    print('thresh-only singlets', len(ct_list['singlet']))
+    print('thresh-only multiplets', len(ct_list['multiplet']))
+
+    # initialize dehash-thresh: debris/singlet/multiplet based on ct_list
+    if 'dehash-thresh' not in meta_cell.columns.tolist():
+        ser_type = pd.Series(np.nan, index=meta_cell.index)
+        meta_cell['dehash-thresh'] = ser_type
+
+    # save dehash-thresh
+    ######################3
+    for inst_type in ct_list:
+        meta_cell.loc[ct_list[inst_type], 'dehash-thresh'] = inst_type
+
+    # Calc signal-to-noise and signal-to-threshold ratios
+    ######################################################
+    meta_cell = calc_s2n_and_s2t(df_hto, meta_hto, meta_cell, inf_replace)
+
+    # Assign Cells to Samples based on Threshold Alone
+    ####################################################
+    list_samples = []
+    for inst_cell in meta_cell.index.tolist():
+
+        inst_type = meta_cell.loc[inst_cell, 'dehash-thresh']
+
+        if inst_type == 'singlet':
+            inst_hto = meta_cell.loc[inst_cell, 'hto-max-name']
+            inst_sample = meta_hto.loc[inst_hto]['Sample']
+        else:
+            inst_sample = 'N.A.'
+
+        list_samples.append(inst_sample)
+
+    ser_sample = pd.Series(list_samples, index=meta_cell.index.tolist())
+    meta_cell['Sample-thresh'] = ser_sample
+
+    # Assign Cells to Samples Based on Signal to Noise Adjustment
+    cells = meta_cell.index.tolist()
+    for inst_cell in cells:
+        inst_type = meta_cell.loc[inst_cell, 'dehash-thresh']
+        inst_sn = meta_cell.loc[inst_cell, 'hto-log2-sn']
+        inst_max_hto = meta_cell.loc[inst_cell, 'hto-max-name']
+
+        # change singlet to multiplet if low sn
+        if inst_type == 'singlet':
+            if inst_sn < sn_thresh['singlets']:
+                # convert to multiplet
+                meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'multiplet'
+                meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = 'N.A.'
+            else:
+                meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'singlet'
+                meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = meta_hto.loc[inst_max_hto]['Sample']
+        elif inst_type == 'debris':
+            if inst_sn >= sn_thresh['debris']:
+                meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'singlet'
+                meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = meta_hto.loc[inst_max_hto]['Sample']
+            else:
+                meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'debris'
+                meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = 'N.A.'
+        elif inst_type == 'multiplet':
+            if inst_sn >= sn_thresh['multiplets']:
+                meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'singlet'
+                meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = meta_hto.loc[inst_max_hto]['Sample']
+            else:
+                meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'multiplet'
+                meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = 'N.A.'
+
+    return meta_cell
