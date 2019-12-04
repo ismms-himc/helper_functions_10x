@@ -919,47 +919,6 @@ def join_lanes(directory_list):
 
             df_merge.to_parquet('../data/processed_data/merged_lanes/' + inst_type + '.parquet')
 
-def sample_meta(df_meta_ini, sample_name):
-
-    list_index = []
-    list_data = []
-
-    df_meta = deepcopy(df_meta_ini)
-
-    # proprtion of singlets
-    #########################
-    ser_cell_per = df_meta['cell-per-bead'].value_counts()
-
-    num_singlets = ser_cell_per.loc['singlet']
-    num_total = ser_cell_per.sum()
-
-    # number of singlets
-    list_index.append('number-singlets')
-    list_data.append(num_singlets)
-
-    # get singlets only
-    df_meta = df_meta[df_meta['cell-per-bead'] == 'singlet']
-
-    # proportion of dead cells
-    ##############################
-    ser_dead = df_meta['dead-cell-mito'].value_counts()
-    prop_dead = ser_dead.loc['dead-cell']/ser_dead.sum()
-
-    list_index.append('proportion-dead')
-    list_data.append(prop_dead)
-
-    # assemble initial metadata series
-    ser_meta_ini = pd.Series(list_data, index=list_index)
-
-    # Calculate average metadata
-    meta_list = ['gex-umi-sum', 'gex-num-unique', 'mito-proportion-umi', 'Ribosomal-Avg', 'Mitochondrial-Avg']
-    ser_meta_mean = df_meta[meta_list].mean()
-
-    ser_meta = pd.concat([ser_meta_ini, ser_meta_mean])
-    ser_meta.name = sample_name
-
-    return ser_meta
-
 
 def load_kb_vel_feature_matrix(inst_path, inst_sample, to_csc=True, given_hto_list=None):
 
@@ -1151,9 +1110,11 @@ def assign_htos(df_hto, meta_hto, meta_cell, sn_thresh, inf_replace=1000):
     ######################################################################################
     ct_list = make_ct_list(df_hto, meta_hto)
 
-    print('thresh-only debris', len(ct_list['debris']))
-    print('thresh-only singlets', len(ct_list['singlet']))
-    print('thresh-only multiplets', len(ct_list['multiplet']))
+    print('De-hash distributions: HTO Threshold Only')
+    print('-----------------------------------------')
+    print('debris', len(ct_list['debris']))
+    print('singlet', len(ct_list['singlet']))
+    print('multiplet', len(ct_list['multiplet']))
 
     # initialize dehash-thresh: debris/singlet/multiplet based on ct_list
     if 'dehash-thresh' not in meta_cell.columns.tolist():
@@ -1217,5 +1178,14 @@ def assign_htos(df_hto, meta_hto, meta_cell, sn_thresh, inf_replace=1000):
             else:
                 meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'multiplet'
                 meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = 'N.A.'
+
+
+    ser_counts = meta_cell['dehash-thresh-sn'].value_counts()
+
+    print('De-hash distributions: HTO Threshold and SN')
+    print('--------------------------------------------')
+    print('debris', ser_counts['debris'])
+    print('singlet', ser_counts['singlet'])
+    print('multiplet', ser_counts['multiplet'])
 
     return meta_cell
