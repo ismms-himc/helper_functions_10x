@@ -345,16 +345,17 @@ def check_feature_data_size(feature_data):
             print(len(feature_data[inst_feat]['features']), len(feature_data[inst_feat]['barcodes']))
             print(feature_data[inst_feat]['mat'].shape, '\n')
 
+def get_mito_genes(gene_list):
+    # Removing Mitochondrial Genes
+    list_mito_genes = list(map(lambda x:x.lower(), ['MTRNR2L11', 'MTRF1', 'MTRNR2L12', 'MTRNR2L13', 'MTRF1L', 'MTRNR2L6', 'MTRNR2L7',
+                    'MTRNR2L10', 'MTRNR2L8', 'MTRNR2L5', 'MTRNR2L1', 'MTRNR2L3', 'MTRNR2L4']))
+    return [x for x in gene_list if 'mt-' == x[:3].lower() or
+                 x.split('_')[0].lower() in list_mito_genes]
+
 def calc_mito_gene_umi_proportion(df_gex, meta_cell, plot_mito=False, mito_thresh=0.9):
 
-    # Removing Mitochondrial Genes
-    list_mito_genes = ['MTRNR2L11', 'MTRF1', 'MTRNR2L12', 'MTRNR2L13', 'MTRF1L', 'MTRNR2L6', 'MTRNR2L7',
-                    'MTRNR2L10', 'MTRNR2L8', 'MTRNR2L5', 'MTRNR2L1', 'MTRNR2L3', 'MTRNR2L4']
-
-
     all_genes = df_gex.index.tolist()
-    mito_genes = [x for x in all_genes if 'MT-' == x[:3] or
-                 x.split('_')[0] in list_mito_genes]
+    mito_genes = get_mito_genes(all_genes)
 
 
     mito_sum = df_gex.loc[mito_genes].sum(axis=0)
@@ -638,8 +639,8 @@ def filter_ribo_mito_from_gex(df, meta_cell):
 
     all_genes = df.index.tolist()
 
-    ribo_rpl = [x for x in all_genes if 'RPL' in x]
-    ribo_rps = [x for x in all_genes if 'RPS' in x]
+    ribo_rpl = [x for x in all_genes if x.lower().startswith('rpl')]
+    ribo_rps = [x for x in all_genes if x.lower().startswith('rps')]
     ribo_genes = ribo_rpl + ribo_rps
 
     # calculate average ribo gene expression
@@ -650,17 +651,9 @@ def filter_ribo_mito_from_gex(df, meta_cell):
 
     df = df.loc[keep_genes]
 
-    print(df.shape)
-
-    # Removing Mitochondrial Genes
-    list_mito_genes = ['MTRNR2L11', 'MTRF1', 'MTRNR2L12', 'MTRNR2L13', 'MTRF1L', 'MTRNR2L6', 'MTRNR2L7',
-                    'MTRNR2L10', 'MTRNR2L8', 'MTRNR2L5', 'MTRNR2L1', 'MTRNR2L3', 'MTRNR2L4']
-
-
     all_genes = df.index.tolist()
 
-    mito_genes = [x for x in all_genes if 'MT-' == x[:3] or
-                 x.split('_')[0] in list_mito_genes]
+    mito_genes = get_mito_genes(all_genes)
 
 
     # calculate average ribo gene expression
@@ -1101,6 +1094,7 @@ def join_lanes(directory_list):
             else:
                 df_merge = pd.concat(list_df, axis=1)
 
+
             df_merge.to_parquet('../data/processed_data/merged_lanes/' + inst_type + '.parquet')
 
 def sample_meta(df_meta_ini, sample_name):
@@ -1188,3 +1182,4 @@ def load_kb_vel_feature_matrix(inst_path, inst_sample, to_csc=True, given_hto_li
     feature_data['gex']['barcodes'] = barcodes
 
     return feature_data
+
