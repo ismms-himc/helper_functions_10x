@@ -12,7 +12,7 @@ import os
 import matplotlib.pyplot as plt
 
 def get_version():
-    print('0.7.0', 'load kb_tools velocity')
+    print('0.8.0', 'gex-hto plot debris filtering')
 
 def make_dir(directory):
     if not os.path.exists(directory):
@@ -1035,12 +1035,16 @@ def calc_feat_sum_and_unique_count_across_cells(feat_data, inst_feat):
     arr_sum = np.asarray(mat.sum(axis=0))[0]
     ser_sum = pd.Series(arr_sum, index=barcodes, name=inst_feat + '-umi-sum')
 
+    # save ash version of umi sum
+    ser_sum_ash = np.arcsinh(ser_sum/5)
+    ser_sum_ash.name = inst_feat + '-umi-sum-ash'
+
     # count number of measured features
     mat[mat > 1] = 1
     arr_count = np.asarray(mat.sum(axis=0))[0]
     ser_count = pd.Series(arr_count, index=barcodes, name=inst_feat + '-num-unique')
 
-    inst_df = pd.concat([ser_sum, ser_count], axis=1)
+    inst_df = pd.concat([ser_sum, ser_sum_ash, ser_count], axis=1)
 
     return inst_df
 
@@ -1189,3 +1193,38 @@ def load_kb_vel_feature_matrix(inst_path, inst_sample, to_csc=True, given_hto_li
 
     return feature_data
 
+def drop_debris_gex_hto_ash(df_meta, gex_ash_thresh=None, hto_ash_thresh=None):
+
+    # convert to non-ash values for interpretation
+    gex_thresh = np.sinh(gex_ash_thresh) * 5
+    hto_thresh = np.sinh(hto_ash_thresh) * 5
+
+    # initialize everything to red (debris)
+    ser_colors = pd.Series('red', index=df_meta.index.tolist())
+
+    color_list = []
+    ser_gex = df_meta['gex-umi-sum-ash']
+    gex_pass = ser_gex[ser_gex > 3.5].index.tolist()
+
+    ser_hto = df_meta['hto-umi-sum-ash']
+    hto_pass = ser_hto[ser_hto > 4.5].index.tolist()
+
+    print('gex thresh UMI-ash: ', gex_ash_thresh, ' gex thresh UMI: ', gex_thresh.round(0))
+
+    print('hto thresh UMI-ash: ', hto_ash_thresh, ' hto thresh UMI: ', hto_thresh.round(0))
+
+    print('gex keep: ', len(gex_pass))
+    print('hto keep: ', len(hto_pass))
+
+    keep_barcodes = list(set(gex_pass + hto_pass))
+    print('keep_barcodes: ', len(keep_barcodes))
+
+
+    ser_colors[keep_barcodes] = 'blue'
+    color_list = ser_colors.get_values()
+
+    df_meta.plot(kind='scatter', x='gex-umi-sum-ash', y='hto-umi-sum-ash',
+                         s=1, alpha=0.5, figsize=(10,10),
+                         ylim=(0,10), xlim=(0,10), c=color_list)
+
+    return keep_barcodes
