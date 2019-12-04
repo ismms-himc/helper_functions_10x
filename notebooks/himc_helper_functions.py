@@ -1093,7 +1093,7 @@ def calc_s2n_and_s2t(df_hto, meta_hto, meta_cell, inf_replace):
 
     return meta_cell
 
-def assign_htos(df_hto, meta_hto, meta_cell, sn_thresh, inf_replace=1000):
+def assign_htos(df_hto, meta_hto, meta_cell, sn_thresh, inf_replace=1000, perform_sn_adjustment=True):
 
 
     # assign cells to debris/singlet/multiplet based on threshold only (ash normalized)
@@ -1112,7 +1112,7 @@ def assign_htos(df_hto, meta_hto, meta_cell, sn_thresh, inf_replace=1000):
         meta_cell['dehash-thresh'] = ser_type
 
     # save dehash-thresh
-    ######################3
+    ######################
     for inst_type in ct_list:
         meta_cell.loc[ct_list[inst_type], 'dehash-thresh'] = inst_type
 
@@ -1138,44 +1138,45 @@ def assign_htos(df_hto, meta_hto, meta_cell, sn_thresh, inf_replace=1000):
     ser_sample = pd.Series(list_samples, index=meta_cell.index.tolist())
     meta_cell['Sample-thresh'] = ser_sample
 
-    # Assign Cells to Samples Based on Signal to Noise Adjustment
-    cells = meta_cell.index.tolist()
-    for inst_cell in cells:
-        inst_type = meta_cell.loc[inst_cell, 'dehash-thresh']
-        inst_sn = meta_cell.loc[inst_cell, 'hto-sn']
-        inst_max_hto = meta_cell.loc[inst_cell, 'hto-max-name']
+    if perform_sn_adjustment:
+        # Assign Cells to Samples Based on Signal to Noise Adjustment
+        cells = meta_cell.index.tolist()
+        for inst_cell in cells:
+            inst_type = meta_cell.loc[inst_cell, 'dehash-thresh']
+            inst_sn = meta_cell.loc[inst_cell, 'hto-sn']
+            inst_max_hto = meta_cell.loc[inst_cell, 'hto-max-name']
 
-        # change singlet to multiplet if low sn
-        if inst_type == 'singlet':
-            if inst_sn < sn_thresh['singlets']:
-                # convert to multiplet
-                meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'multiplet'
-                meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = 'N.A.'
-            else:
-                meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'singlet'
-                meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = meta_hto.loc[inst_max_hto]['Sample']
-        elif inst_type == 'debris':
-            if inst_sn >= sn_thresh['debris']:
-                meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'singlet'
-                meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = meta_hto.loc[inst_max_hto]['Sample']
-            else:
-                meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'debris'
-                meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = 'N.A.'
-        elif inst_type == 'multiplet':
-            if inst_sn >= sn_thresh['multiplets']:
-                meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'singlet'
-                meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = meta_hto.loc[inst_max_hto]['Sample']
-            else:
-                meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'multiplet'
-                meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = 'N.A.'
+            # change singlet to multiplet if low sn
+            if inst_type == 'singlet':
+                if inst_sn < sn_thresh['singlets']:
+                    # convert to multiplet
+                    meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'multiplet'
+                    meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = 'N.A.'
+                else:
+                    meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'singlet'
+                    meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = meta_hto.loc[inst_max_hto]['Sample']
+            elif inst_type == 'debris':
+                if inst_sn >= sn_thresh['debris']:
+                    meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'singlet'
+                    meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = meta_hto.loc[inst_max_hto]['Sample']
+                else:
+                    meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'debris'
+                    meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = 'N.A.'
+            elif inst_type == 'multiplet':
+                if inst_sn >= sn_thresh['multiplets']:
+                    meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'singlet'
+                    meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = meta_hto.loc[inst_max_hto]['Sample']
+                else:
+                    meta_cell.loc[inst_cell, 'dehash-thresh-sn'] = 'multiplet'
+                    meta_cell.loc[inst_cell, 'Sample-thresh-sn'] = 'N.A.'
 
 
-    ser_counts = meta_cell['dehash-thresh-sn'].value_counts()
+        ser_counts = meta_cell['dehash-thresh-sn'].value_counts()
 
-    print('De-hash distributions: HTO Threshold and SN')
-    print('--------------------------------------------')
-    print('debris', ser_counts['debris'])
-    print('singlet', ser_counts['singlet'])
-    print('multiplet', ser_counts['multiplet'])
+        print('De-hash distributions: HTO Threshold and SN')
+        print('--------------------------------------------')
+        print('debris', ser_counts['debris'])
+        print('singlet', ser_counts['singlet'])
+        print('multiplet', ser_counts['multiplet'])
 
     return meta_cell
