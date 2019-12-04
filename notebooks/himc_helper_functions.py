@@ -12,7 +12,7 @@ import os
 import matplotlib.pyplot as plt
 
 def get_version():
-    print('0.6.2', 'rename fraction to proportion')
+    print('0.7.0', 'load kb_tools velocity')
 
 def make_dir(directory):
     if not os.path.exists(directory):
@@ -324,8 +324,10 @@ def filter_barcodes_by_umi(feature_data, feature_type, min_umi=0, max_umi=1e8,
 
     return filtered_data
 
-def convert_to_dense(feat_data):
-    df = {}
+def convert_to_dense(feat_data, df=None):
+    # initialize df if necessary
+    if df is None:
+        df = {}
     for inst_feat in feat_data:
         mat = feat_data[inst_feat]['mat']
         rows = feat_data[inst_feat]['features']
@@ -386,7 +388,7 @@ def calc_mito_gene_umi_proportion(df_gex, meta_cell, plot_mito=False, mito_thres
 
     return meta_cell
 
-def set_hto_thresh(df_hto, meta_hto, hto_name, max_plot_hto=7, thresh=1, ylim =100):
+def set_hto_thresh(df_hto, meta_hto, hto_name, xlim=7, thresh=1, ylim =100):
 
     if 'hto-threshold' not in meta_hto.columns.tolist():
         ser_thresh = pd.Series(np.nan, index=meta_hto.index)
@@ -395,7 +397,7 @@ def set_hto_thresh(df_hto, meta_hto, hto_name, max_plot_hto=7, thresh=1, ylim =1
 
     ser_hto = df_hto.loc[hto_name]
 
-    n, bins, patches = plt.hist(ser_hto, bins=100, range=(0, max_plot_hto))
+    n, bins, patches = plt.hist(ser_hto, bins=100, range=(0, xlim))
 
     colors = []
     for inst_bin in bins:
@@ -471,7 +473,7 @@ def ini_meta_gene(df_gex_ini):
 
     return meta_gene
 
-def assign_htos(df_hto_ini, meta_hto, meta_cell, sn_thresh):
+def assign_htos(df_hto_ini, meta_hto, meta_cell, sn_thresh, inf_replace=1000):
 
     ser_list = []
     df_hto = deepcopy(df_hto_ini)
@@ -538,12 +540,16 @@ def assign_htos(df_hto_ini, meta_hto, meta_cell, sn_thresh):
     df_comp = pd.concat([ser_first, ser_second], axis=1).transpose()
 
     # calculate signal-to-noise
-    sn_ratio = np.log2(df_comp.loc['first highest HTO']/df_comp.loc['second highest HTO'])
-    # replace nans with zeros (nans represent all zeros for htos)
-    sn_ratio = sn_ratio.fillna(0)
+    sn_ratio = df_comp.loc['first highest HTO']/df_comp.loc['second highest HTO']
+    meta_cell['hto-ash-sn'] = sn_ratio
+    # replace infinities with large number
+    sn_ratio = sn_ratio.replace(np.Inf, inf_replace)
 
-    # save to metadata
-    meta_cell['hto-log2-sn'] = sn_ratio
+    # calc ratio
+    sn_ratio_log2 = np.log2(sn_ratio)
+    # replace nans with zeros (nans represent all zeros for htos)
+    sn_ratio_log2 = sn_ratio_log2.fillna(0)
+    meta_cell['hto-ash-log2-sn'] = sn_ratio_log2
 
     # assign tentative sample
     list_samples = []
@@ -566,7 +572,7 @@ def assign_htos(df_hto_ini, meta_hto, meta_cell, sn_thresh):
     cells = meta_cell.index.tolist()
     for inst_cell in cells:
         inst_type = meta_cell.loc[inst_cell, 'dehash-thresh']
-        inst_sn = meta_cell.loc[inst_cell, 'hto-log2-sn']
+        inst_sn = meta_cell.loc[inst_cell, 'hto-ash-log2-sn']
         inst_max_hto = meta_cell.loc[inst_cell, 'hto-max']
 
         # change singlet to multiplet if low sn
@@ -595,7 +601,7 @@ def assign_htos(df_hto_ini, meta_hto, meta_cell, sn_thresh):
 
     return meta_cell
 
-def plot_signal_vs_noise(df, alpha=0.25, s=10, hto_range=7, inf_replace=5):
+def plot_signal_vs_noise(df, alpha=0.25, s=10, hto_range=7, inf_replace=1000):
 
     fig, axes = plt.subplots(nrows=1, ncols=2)
 
@@ -657,6 +663,8 @@ def filter_ribo_mito_from_gex(df, meta_cell):
     keep_genes = [x for x in all_genes if x not in mito_genes]
 
     df = df.loc[keep_genes]
+
+    print(df.shape)
 
     # calculate average ribo gene expression
     df_meta = pd.concat([ser_ribo, ser_mito], axis=1)
@@ -1086,4 +1094,92 @@ def join_lanes(directory_list):
             else:
                 df_merge = pd.concat(list_df, axis=1)
 
+
             df_merge.to_parquet('../data/processed_data/merged_lanes/' + inst_type + '.parquet')
+
+def sample_meta(df_meta_ini, sample_name):
+
+    list_index = []
+    list_data = []
+
+    df_meta = deepcopy(df_meta_ini)
+
+    # proprtion of singlets
+    #########################
+    ser_cell_per = df_meta['cell-per-bead'].value_counts()
+
+    num_singlets = ser_cell_per.loc['singlet']
+    num_total = ser_cell_per.sum()
+
+    # number of singlets
+    list_index.append('number-singlets')
+    list_data.append(num_singlets)
+
+    # get singlets only
+    df_meta = df_meta[df_meta['cell-per-bead'] == 'singlet']
+
+    # proportion of dead cells
+    ##############################
+    ser_dead = df_meta['dead-cell-mito'].value_counts()
+    prop_dead = ser_dead.loc['dead-cell']/ser_dead.sum()
+
+    list_index.append('proportion-dead')
+    list_data.append(prop_dead)
+
+    # assemble initial metadata series
+    ser_meta_ini = pd.Series(list_data, index=list_index)
+
+    # Calculate average metadata
+    meta_list = ['gex-umi-sum', 'gex-num-unique', 'mito-proportion-umi', 'Ribosomal-Avg', 'Mitochondrial-Avg']
+    ser_meta_mean = df_meta[meta_list].mean()
+
+    ser_meta = pd.concat([ser_meta_ini, ser_meta_mean])
+    ser_meta.name = sample_name
+
+    return ser_meta
+
+
+def load_kb_vel_feature_matrix(inst_path, inst_sample, to_csc=True, given_hto_list=None):
+
+    # Load barcodes
+    #################
+    filename = inst_path + inst_sample + '.barcodes.txt'
+    f = open(filename, 'r')
+    lines = f.readlines()
+    f.close()
+
+    barcodes = []
+    for inst_bc in lines:
+        inst_bc = inst_bc.strip().split('\t')
+
+        barcodes.append(inst_bc[0])
+
+
+    # Load genes
+    #################
+    filename = inst_path + inst_sample + '.genes.txt'
+    f = open(filename, 'r')
+    lines = f.readlines()
+    f.close()
+
+    genes = []
+    for inst_gene in lines:
+        inst_gene = inst_gene.strip().split('\t')
+
+        genes.append(inst_gene[0])
+
+    # Load Matrix
+    #################
+    mat = io.mmread(inst_path + inst_sample +'.mtx').transpose()
+    mat = mat.tocsc()
+
+    print(len(genes), len(barcodes), mat.shape)
+
+    feature_data = {}
+    feature_data['gex'] = {}
+    feature_data['gex']['mat'] = mat
+    feature_data['gex']['features'] = genes
+    feature_data['gex']['barcodes'] = barcodes
+
+    return feature_data
+
