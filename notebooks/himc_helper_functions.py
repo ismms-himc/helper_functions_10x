@@ -535,7 +535,7 @@ def plot_signal_vs_noise(df, alpha=0.25, s=10, hto_range=7, inf_replace=1000):
 def filter_ribo_mito_from_gex(df):
 
     # save avg values to meta_cell
-    if 'Mitochondrial-Avg' not in df['meta_cell']:
+    if 'gex-mito-avg' not in df['meta_cell']:
 
         df_gex = deepcopy(df['gex'])
         meta_cell = deepcopy(df['meta_cell'])
@@ -550,7 +550,6 @@ def filter_ribo_mito_from_gex(df):
 
         # calculate average ribo gene expression
         ser_ribo = df_gex.loc[ribo_genes].mean(axis=0)
-        ser_ribo.name = 'Ribosomal-Avg'
 
         keep_genes = [x for x in all_genes if x not in ribo_genes]
 
@@ -560,9 +559,8 @@ def filter_ribo_mito_from_gex(df):
 
         mito_genes = get_mito_genes(all_genes)
 
-        # calculate average ribo gene expression
+        # calculate average mito gene expression
         ser_mito = df_gex.loc[mito_genes].mean(axis=0)
-        ser_mito.name = 'Mitochondrial-Avg'
 
         keep_genes = [x for x in all_genes if x not in mito_genes]
 
@@ -570,11 +568,11 @@ def filter_ribo_mito_from_gex(df):
         mr_genes = sorted(list(set(ini_genes).difference(keep_genes)))
         df_mr = df['gex'].loc[mr_genes]
 
-        # # drop mito and ribo genes
-        # df_gex = df['gex'].loc[keep_genes]
+        # drop mito and ribo genes
+        df_gex = df['gex'].loc[keep_genes]
 
-        meta_cell['Mitochondrial-Avg'] = ser_mito
-        meta_cell['Ribosomal-Avg'] = ser_ribo
+        meta_cell['gex-ribo-avg'] = ser_ribo
+        meta_cell['gex-mito-avg'] = ser_mito
 
         df['gex'] = df_gex
         df['meta_cell'] = meta_cell
@@ -608,14 +606,15 @@ def add_cats_from_meta(barcodes, df_meta, add_cat_list):
 
 def make_cyto_export(df, num_var_genes=500):
 
-    keep_meta_base = ['hto-umi-sum',
-                      'gex-umi-sum',
-                      'adt-umi-sum',
+    keep_meta_base = ['gex-umi-sum',
                       'gex-num-unique',
-                      'hto-sn',
                       'gex-mito-proportion-umi',
-                      'gex-umi-sum-no-ribo-mito',
-                      'gex-num-unique-no-ribo-mito']
+                      'gex-mito-avg',
+                      'gex-ribo-avg'
+                      'hto-umi-sum',
+                      'hto-sn',
+                      'adt-umi-sum'
+                      ]
 
     df_cyto = None
 
@@ -927,7 +926,7 @@ def sample_meta(df_meta_ini, sample_name):
     ser_meta_ini = pd.Series(list_data, index=list_index)
 
     # Calculate average metadata
-    meta_list = ['gex-umi-sum', 'gex-num-unique', 'gex-mito-proportion-umi', 'Ribosomal-Avg', 'Mitochondrial-Avg']
+    meta_list = ['gex-umi-sum', 'gex-num-unique', 'gex-mito-proportion-umi', 'gex-ribo-avg', 'gex-mito-avg']
     ser_meta_mean = df_meta[meta_list].mean()
 
     ser_meta = pd.concat([ser_meta_ini, ser_meta_mean])
