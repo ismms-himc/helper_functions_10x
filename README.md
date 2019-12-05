@@ -102,6 +102,7 @@ Embedding cell metadata into the MTX file format could be done (by treating nume
 * `GEX_der_mito_avg` (avg umi expression of all mitochondrial genes)
 * `GEX_der_ribo_avg` (avg umi expression of all ribosomal genes)
 * `HTO_der_umi_sum`
+* `HTO_der_sn`
 * `ADT_der_umi_sum`
 
 5. Add random noise to ADT and HTO data to 2 decimal places for visualization purposes
