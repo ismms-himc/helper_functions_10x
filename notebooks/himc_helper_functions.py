@@ -387,7 +387,7 @@ def mito_prop_and_suspected_dead(df_gex, meta_cell, mito_thresh=0.9,
 
     ser_dead = pd.Series(list_mito_dead, index=cells)
 
-    meta_cell['mito-proportion-umi'] = mito_proportion
+    meta_cell['gex-mito-proportion-umi'] = mito_proportion
     meta_cell['dead-cell-mito'] = ser_dead
 
     if plot_mito:
@@ -398,7 +398,7 @@ def mito_prop_and_suspected_dead(df_gex, meta_cell, mito_thresh=0.9,
 
         meta_cell.plot(kind='scatter',
                        x='gex-umi-sum-ash',
-                       y='mito-proportion-umi',
+                       y='gex-mito-proportion-umi',
                        alpha=alpha,
                        s=s,
                        figsize=(10,10),
@@ -609,13 +609,13 @@ def add_cats_from_meta(barcodes, df_meta, add_cat_list):
 def make_cyto_export(df, num_var_genes=500):
 
     keep_meta_base = ['hto-umi-sum',
-                 'gex-umi-sum',
-                 'adt-umi-sum',
-                 'num_expressed_genes',
-                 'hto-sn',
-                 'mito-fraction-umi',
-                 'gex-umi-sum-no-ribo-mito',
-                 'num_expressed_genes_no-ribo-mito']
+                      'gex-umi-sum',
+                      'adt-umi-sum',
+                      'gex-num-unique',
+                      'hto-sn',
+                      'gex-mito-proportion-umi',
+                      'gex-umi-sum-no-ribo-mito',
+                      'gex-num-unique-no-ribo-mito']
 
     df_cyto = None
 
@@ -633,7 +633,9 @@ def make_cyto_export(df, num_var_genes=500):
             else:
                 keep_meta = [metadata for metadata in keep_meta_base if metadata in inst_df.columns]
                 inst_df = inst_df[keep_meta].transpose()
-                inst_df.index = ['DER_' + x for x in inst_df.index.tolist()]
+                inst_df.index = [ x.split('-')[0].upper() + '_der_' +
+                                 '_'.join( x.split('-')[1:]).replace('num_unique', 'unique_gene_count')
+                                 for x in inst_df.index.tolist()]
 
             print(inst_type, inst_df.shape)
 
@@ -657,6 +659,7 @@ def make_cyto_export(df, num_var_genes=500):
     ser_index = pd.Series(data=index_cells, index=cells)
     df['meta_cell']['Cytobank-Index'] = ser_index
 
+    df_export.index.name = 'cell_index'
     df['cyto-export'] = df_export
 
     return df
@@ -924,7 +927,7 @@ def sample_meta(df_meta_ini, sample_name):
     ser_meta_ini = pd.Series(list_data, index=list_index)
 
     # Calculate average metadata
-    meta_list = ['gex-umi-sum', 'gex-num-unique', 'mito-proportion-umi', 'Ribosomal-Avg', 'Mitochondrial-Avg']
+    meta_list = ['gex-umi-sum', 'gex-num-unique', 'gex-mito-proportion-umi', 'Ribosomal-Avg', 'Mitochondrial-Avg']
     ser_meta_mean = df_meta[meta_list].mean()
 
     ser_meta = pd.concat([ser_meta_ini, ser_meta_mean])
