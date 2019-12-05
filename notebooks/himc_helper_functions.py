@@ -606,7 +606,7 @@ def add_cats_from_meta(barcodes, df_meta, add_cat_list):
     return new_cols
 
 
-def make_cyto_export(df, num_var_genes=500):
+def make_cyto_export(df, num_var_genes=500, inf_replace=10):
 
     keep_meta_base = ['gex-umi-sum',
                       'gex-num-unique',
@@ -627,7 +627,9 @@ def make_cyto_export(df, num_var_genes=500):
             # filter for top var genes
             if inst_type == 'gex':
                 keep_var_genes = inst_df.var(axis=1).sort_values(ascending=False).index.tolist()[:num_var_genes]
+
                 inst_df = inst_df.loc[keep_var_genes]
+
             if 'meta' not in inst_type:
                 inst_df.index = [inst_type.upper() + '_' + x for x in inst_df.index.tolist()]
 
@@ -666,6 +668,12 @@ def make_cyto_export(df, num_var_genes=500):
     df['meta_cell']['Cytobank-Index'] = ser_index
 
     df_export.index.name = 'cell_index'
+
+    # replace inf and nans
+    df_export[df_export == np.inf] = inf_replace
+    df_export.fillna(0, inplace=True)
+
+
     df['cyto-export'] = df_export
 
     return df
@@ -941,24 +949,36 @@ def sample_meta(df_meta_ini, sample_name):
 
     return ser_meta
 
-def join_lanes(directory_list):
-    for inst_type in ['gex', 'adt', 'hto', 'meta_cell']:
+def join_lanes(lane_dirs, merged_dir, data_types=['gex', 'adt', 'hto', 'meta_cell']):
+
+    lane_dirs = sorted(lane_dirs)
+
+    for inst_type in data_types:
+
         list_df = []
-        for inst_dir in directory_list:
-            inst_lane = inst_dir.split('-')[-1]
+
+        print('\n' + inst_type + '\n----------------')
+
+        for inst_dir in lane_dirs:
+
+            inst_lane = inst_dir.split('/')[-1]
             inst_file = inst_dir + '/' + inst_type + '.parquet'
             if os.path.exists(inst_file):
+
+
                 inst_df = pd.read_parquet(inst_file)
+                print(inst_lane, inst_df.shape)
                 list_df.append(inst_df)
+
         if len(list_df)>0:
             if 'meta' in inst_type:
-                df_merge = pd.concat(list_df, axis=0)
+                df_merge = pd.concat(list_df, axis=0, sort=True)
             else:
                 df_merge = pd.concat(list_df, axis=1)
 
+            print('merged', inst_type, df_merge.shape)
 
-            df_merge.to_parquet('../data/processed_data/merged_lanes/' + inst_type + '.parquet')
-
+            df_merge.to_parquet(merged_dir + '/' + inst_type + '.parquet')
 
 def load_kb_vel_feature_matrix(inst_path, inst_sample, to_csc=True):
 
