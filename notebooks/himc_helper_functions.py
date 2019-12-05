@@ -1,4 +1,4 @@
-# Version: 0.6.0
+# Version: 0.9.1
 # This is a set of scripts that are used in processing 10x single cell data
 
 import gzip
