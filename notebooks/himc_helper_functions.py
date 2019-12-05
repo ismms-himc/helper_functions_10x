@@ -12,7 +12,7 @@ import os
 import matplotlib.pyplot as plt
 
 def get_version():
-    print('0.9.0', 'meta_cell improvements')
+    print('0.9.1', 'improve crv3 data loading')
 
 def make_dir(directory):
     if not os.path.exists(directory):
