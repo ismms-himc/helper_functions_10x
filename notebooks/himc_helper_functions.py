@@ -18,35 +18,36 @@ def make_dir(directory):
     if not os.path.exists(directory):
         os.mkdir(directory)
 
-def load_crv3_feature_matrix(inst_path, to_csc=True, given_hto_list=None):
+def load_crv3_feature_matrix(inst_path, to_csc=True, hto_list=None,
+                             drop_default_lane=True, add_lane_to_barcodes=None):
+
+
     # Read Barcodes
     ###########################
-    # need to check whether we have tuples
-    barcodes_cats = False
-
-    # barcodes
     filename = inst_path + 'barcodes.tsv.gz'
     f = gzip.open(filename, 'rt')
     lines = f.readlines()
     f.close()
 
+    # if we are adding a lane, then we always want to drop the default cr lane
+    if add_lane_to_barcodes is not None:
+        drop_default_lane = True
+
     barcodes = []
     for inst_bc in lines:
         inst_bc = inst_bc.strip().split('\t')
 
-        if barcodes_cats == False:
-            # remove dash from barcodes if necessary
+        # remove dash from barcodes if necessary
+        if drop_default_lane:
             if '-' in inst_bc[0]:
                 inst_bc[0] = inst_bc[0].split('-')[0]
+            else:
+                print('did not find initial lane from cellranger')
 
         barcodes.append(inst_bc[0])
 
-    # parse tuples if necessary
-    if barcodes_cats:
-        try:
-            barcodes = [make_tuple(x) for x in barcodes]
-        except:
-            pass
+    if add_lane_to_barcodes is not None:
+        barcodes = [x + '-' + add_lane_to_barcodes for x in barcodes]
 
     # Load Matrix
     #################
@@ -66,12 +67,11 @@ def load_crv3_feature_matrix(inst_path, to_csc=True, given_hto_list=None):
 
         inst_line = lines[index].strip().split('\t')
         inst_feat = inst_line[2].replace('Gene Expression', 'gex')#
-        if given_hto_list is None:
-            inst_feat=inst_feat.replace('Antibody Capture', 'adt').replace('Custom', 'custom')
+        if hto_list is None:
+            inst_feat = inst_feat.replace('Antibody Capture', 'adt').replace('Custom', 'custom')
         else:
-            if inst_feat=='Custom':
-                inst_feat=('hto' if inst_line[0] in given_hto_list else 'adt')
-
+            if inst_feat == 'Custom':
+                inst_feat = ('hto' if inst_line[0] in hto_list else 'adt')
 
         if inst_feat not in feature_indexes:
             feature_indexes[inst_feat] = []
@@ -117,6 +117,9 @@ def load_crv3_feature_matrix(inst_path, to_csc=True, given_hto_list=None):
         new_names = [x.replace('_TotalSeqB', '') for x in new_names]
 
         feature_data[inst_feat]['features'] = new_names
+
+
+
 
     return feature_data
 
@@ -610,7 +613,7 @@ def make_cyto_export(df, num_var_genes=500):
                       'gex-num-unique',
                       'gex-mito-proportion-umi',
                       'gex-mito-avg',
-                      'gex-ribo-avg'
+                      'gex-ribo-avg',
                       'hto-umi-sum',
                       'hto-sn',
                       'adt-umi-sum'
@@ -650,10 +653,15 @@ def make_cyto_export(df, num_var_genes=500):
     df_export.index = index_cells
 
     # Add noise
-    not_derived_columns = [column for column in df_export.columns if not column.startswith('DER_')]
-    not_derived_dataframe_shape = df_export[not_derived_columns].shape
-    noise_matrix = pd.DataFrame(data=np.random.rand(not_derived_dataframe_shape[0], not_derived_dataframe_shape[1]), index=index_cells, columns=not_derived_columns).round(2)
-    df_export[not_derived_columns] += noise_matrix
+    data_columns = [x for x in df_export.columns if '_der_' not in x]
+
+    not_derived_dataframe_shape = df_export[data_columns].shape
+
+    # center the noise about zero
+    rand_mat = np.random.rand(not_derived_dataframe_shape[0], not_derived_dataframe_shape[1]) - 0.5
+
+    df_noise = pd.DataFrame(data=rand_mat, index=index_cells, columns=data_columns).round(2)
+    df_export[data_columns] += df_noise
 
     ser_index = pd.Series(data=index_cells, index=cells)
     df['meta_cell']['Cytobank-Index'] = ser_index
@@ -953,7 +961,7 @@ def join_lanes(directory_list):
             df_merge.to_parquet('../data/processed_data/merged_lanes/' + inst_type + '.parquet')
 
 
-def load_kb_vel_feature_matrix(inst_path, inst_sample, to_csc=True, given_hto_list=None):
+def load_kb_vel_feature_matrix(inst_path, inst_sample, to_csc=True):
 
     # Load barcodes
     #################
