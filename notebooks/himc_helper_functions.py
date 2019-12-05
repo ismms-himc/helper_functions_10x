@@ -358,7 +358,8 @@ def get_mito_genes(gene_list):
 
     return found_mito_genes
 
-def calc_mito_gene_umi_proportion(df_gex, meta_cell, plot_mito=False, mito_thresh=0.9):
+def mito_prop_and_suspected_dead(df_gex, meta_cell, mito_thresh=0.9,
+                                 plot_mito=True, s=5, alpha=0.2):
 
     all_genes = df_gex.index.tolist()
     mito_genes = get_mito_genes(all_genes)
@@ -374,9 +375,6 @@ def calc_mito_gene_umi_proportion(df_gex, meta_cell, plot_mito=False, mito_thres
 
     mito_proportion = mito_sum/gex_sum
 
-    if plot_mito:
-        mito_proportion.sort_values(ascending=False).plot()
-
     list_mito_dead = []
     cells = mito_proportion.index.tolist()
     for inst_cell in cells:
@@ -391,6 +389,20 @@ def calc_mito_gene_umi_proportion(df_gex, meta_cell, plot_mito=False, mito_thres
 
     meta_cell['mito-proportion-umi'] = mito_proportion
     meta_cell['dead-cell-mito'] = ser_dead
+
+    if plot_mito:
+        # mito_proportion.sort_values(ascending=False).plot()
+
+        all_cells = meta_cell.index.tolist()
+        color_list = ['red' if meta_cell.loc[x,'dead-cell-mito'] == 'dead-cell' else 'blue' for x in all_cells]
+
+        meta_cell.plot(kind='scatter',
+                       x='gex-umi-sum-ash',
+                       y='mito-proportion-umi',
+                       alpha=alpha,
+                       s=s,
+                       figsize=(10,10),
+                       c=color_list)
 
     return meta_cell
 
