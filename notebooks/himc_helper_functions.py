@@ -404,6 +404,9 @@ def mito_prop_and_suspected_dead(df_gex, meta_cell, mito_thresh=0.9,
                        figsize=(10,10),
                        c=color_list)
 
+    print('live-cell', ser_dead.value_counts()['live-cell'])
+    print('dead-cell', ser_dead.value_counts()['dead-cell'])
+
     return meta_cell
 
 def set_hto_thresh(df_hto, meta_hto, hto_name, xlim=7, thresh=1, ylim =100):
@@ -533,6 +536,8 @@ def filter_ribo_mito_from_gex(df, meta_cell):
 
     all_genes = df.index.tolist()
 
+    ini_genes = deepcopy(all_genes)
+
     ribo_rpl = [x for x in all_genes if x.lower().startswith('rpl')]
     ribo_rps = [x for x in all_genes if x.lower().startswith('rps')]
     ribo_genes = ribo_rpl + ribo_rps
@@ -549,21 +554,28 @@ def filter_ribo_mito_from_gex(df, meta_cell):
 
     mito_genes = get_mito_genes(all_genes)
 
-
     # calculate average ribo gene expression
     ser_mito = df.loc[mito_genes].mean(axis=0)
     ser_mito.name = 'Mitochondrial-Avg'
 
     keep_genes = [x for x in all_genes if x not in mito_genes]
 
-    df = df.loc[keep_genes]
+    # save mito and ribo genes
+    mr_genes = sorted(list(set(ini_genes).difference(keep_genes)))
+    df_mr = df.loc[mr_genes]
 
-    print(df.shape)
+    print(df_mr.shape)
 
-    # calculate average ribo gene expression
-    df_meta = pd.concat([ser_ribo, ser_mito], axis=1)
+    # # drop mito and ribo genes
+    # df = df.loc[keep_genes]
 
-    meta_cell = pd.concat([meta_cell, df_meta], axis=1)
+    # save avg values to meta_cell
+    if 'Mitochondrial-Avg' not in meta_cell:
+        meta_cell['Mitochondrial-Avg'] = ser_mito
+        meta_cell['Ribosomal-Avg'] = ser_ribo
+    else:
+        print('already calculated average expression of mito and ribo genes')
+
 
     return df, meta_cell
 
