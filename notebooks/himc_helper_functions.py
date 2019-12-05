@@ -12,7 +12,7 @@ import os
 import matplotlib.pyplot as plt
 
 def get_version():
-    print('0.8.0', 'gex-hto plot debris filtering')
+    print('0.9.0', 'meta_cell improvements')
 
 def make_dir(directory):
     if not os.path.exists(directory):
