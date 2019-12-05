@@ -12,7 +12,7 @@ import os
 import matplotlib.pyplot as plt
 
 def get_version():
-    print('0.10.0', 'plot hto-sn-ash vs gex-umi-sum-ash with dehash coloring')
+    print('0.10.0', 'plot hto-sn-ash vs gex-umi-sum-ash with cell-per-bead coloring')
 
 def make_dir(directory):
     if not os.path.exists(directory):
