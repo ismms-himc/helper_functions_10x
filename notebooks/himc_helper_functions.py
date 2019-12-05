@@ -1,4 +1,4 @@
-# Version: 0.9.1
+# Version: 0.10.0
 # This is a set of scripts that are used in processing 10x single cell data
 
 import gzip
@@ -12,7 +12,7 @@ import os
 import matplotlib.pyplot as plt
 
 def get_version():
-    print('0.9.1', 'improve crv3 data loading')
+    print('0.10.0', 'plot hto-sn-ash vs gex-umi-sum-ash with dehash coloring')
 
 def make_dir(directory):
     if not os.path.exists(directory):
@@ -584,7 +584,6 @@ def filter_ribo_mito_from_gex(df):
         print('already filtered mito and ribo genes')
 
     return df
-
 
 
 def add_cats_from_meta(barcodes, df_meta, add_cat_list):
@@ -1221,3 +1220,21 @@ def assign_htos(df_hto, meta_hto, meta_cell, sn_thresh, inf_replace=1000, perfor
         print('multiplet', ser_counts['multiplet'])
 
     return meta_cell
+
+def plot_hto_sn_vs_gex_umi(df):
+
+    if 'hto-sn-ash' not in df['meta_cell']:
+        df['meta_cell']['hto-sn-ash'] = np.arcsinh(df['meta_cell']['hto-sn']/5)
+
+    color_dict = {
+        "singlet":'blue',
+        "debris":'red',
+        "multiplet":'yellow',
+    }
+
+    list_dehash = list(df['meta_cell']['cell-per-bead'].get_values())
+    color_list = [color_dict[x] for x in list_dehash]
+
+    df['meta_cell'].plot(kind='scatter',
+                         x='gex-umi-sum-ash',
+                         y='hto-sn-ash', alpha=0.25, s=10, figsize=(10,10), c=color_list, ylim=(0,5))
