@@ -1,4 +1,4 @@
-# Version: 0.10.0
+# Version: 0.10.1
 # This is a set of scripts that are used in processing 10x single cell data
 
 import gzip
@@ -12,7 +12,7 @@ import os
 import matplotlib.pyplot as plt
 
 def get_version():
-    print('0.10.0', 'plot hto-sn-ash vs gex-umi-sum-ash with cell-per-bead coloring')
+    print('0.10.1', 'fixed debris threshold setting')
 
 def make_dir(directory):
     if not os.path.exists(directory):
@@ -1015,10 +1015,10 @@ def drop_debris_gex_hto_ash(df_meta, gex_ash_thresh=None, hto_ash_thresh=None):
 
     color_list = []
     ser_gex = df_meta['gex-umi-sum-ash']
-    gex_pass = ser_gex[ser_gex > 3.5].index.tolist()
+    gex_pass = ser_gex[ser_gex >= gex_ash_thresh].index.tolist()
 
     ser_hto = df_meta['hto-umi-sum-ash']
-    hto_pass = ser_hto[ser_hto > 4.5].index.tolist()
+    hto_pass = ser_hto[ser_hto >= hto_ash_thresh].index.tolist()
 
     print('gex thresh UMI-ash: ', gex_ash_thresh, ' gex thresh UMI: ', gex_thresh.round(0))
     print('hto thresh UMI-ash: ', hto_ash_thresh, ' hto thresh UMI: ', hto_thresh.round(0))
