@@ -532,52 +532,59 @@ def plot_signal_vs_noise(df, alpha=0.25, s=10, hto_range=7, inf_replace=1000):
 
     return df_comp, sn_ratio
 
-def filter_ribo_mito_from_gex(df, meta_cell):
-
-    all_genes = df.index.tolist()
-
-    ini_genes = deepcopy(all_genes)
-
-    ribo_rpl = [x for x in all_genes if x.lower().startswith('rpl')]
-    ribo_rps = [x for x in all_genes if x.lower().startswith('rps')]
-    ribo_genes = ribo_rpl + ribo_rps
-
-    # calculate average ribo gene expression
-    ser_ribo = df.loc[ribo_genes].mean(axis=0)
-    ser_ribo.name = 'Ribosomal-Avg'
-
-    keep_genes = [x for x in all_genes if x not in ribo_genes]
-
-    df = df.loc[keep_genes]
-
-    all_genes = df.index.tolist()
-
-    mito_genes = get_mito_genes(all_genes)
-
-    # calculate average ribo gene expression
-    ser_mito = df.loc[mito_genes].mean(axis=0)
-    ser_mito.name = 'Mitochondrial-Avg'
-
-    keep_genes = [x for x in all_genes if x not in mito_genes]
-
-    # save mito and ribo genes
-    mr_genes = sorted(list(set(ini_genes).difference(keep_genes)))
-    df_mr = df.loc[mr_genes]
-
-    print(df_mr.shape)
-
-    # # drop mito and ribo genes
-    # df = df.loc[keep_genes]
+def filter_ribo_mito_from_gex(df):
 
     # save avg values to meta_cell
-    if 'Mitochondrial-Avg' not in meta_cell:
+    if 'Mitochondrial-Avg' not in df['meta_cell']:
+
+        df_gex = deepcopy(df['gex'])
+        meta_cell = deepcopy(df['meta_cell'])
+
+        all_genes = df_gex.index.tolist()
+
+        ini_genes = deepcopy(all_genes)
+
+        ribo_rpl = [x for x in all_genes if x.lower().startswith('rpl')]
+        ribo_rps = [x for x in all_genes if x.lower().startswith('rps')]
+        ribo_genes = ribo_rpl + ribo_rps
+
+        # calculate average ribo gene expression
+        ser_ribo = df_gex.loc[ribo_genes].mean(axis=0)
+        ser_ribo.name = 'Ribosomal-Avg'
+
+        keep_genes = [x for x in all_genes if x not in ribo_genes]
+
+        df_gex = df_gex.loc[keep_genes]
+
+        all_genes = df_gex.index.tolist()
+
+        mito_genes = get_mito_genes(all_genes)
+
+        # calculate average ribo gene expression
+        ser_mito = df_gex.loc[mito_genes].mean(axis=0)
+        ser_mito.name = 'Mitochondrial-Avg'
+
+        keep_genes = [x for x in all_genes if x not in mito_genes]
+
+        # save mito and ribo genes
+        mr_genes = sorted(list(set(ini_genes).difference(keep_genes)))
+        df_mr = df['gex'].loc[mr_genes]
+
+        # # drop mito and ribo genes
+        # df_gex = df['gex'].loc[keep_genes]
+
         meta_cell['Mitochondrial-Avg'] = ser_mito
         meta_cell['Ribosomal-Avg'] = ser_ribo
+
+        df['gex'] = df_gex
+        df['meta_cell'] = meta_cell
+        df['gex-mr'] = df_mr
     else:
-        print('already calculated average expression of mito and ribo genes')
+        print('already filtered mito and ribo genes')
+
+    return df
 
 
-    return df, meta_cell
 
 def add_cats_from_meta(barcodes, df_meta, add_cat_list):
     '''
