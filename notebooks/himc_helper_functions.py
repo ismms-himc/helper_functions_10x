@@ -949,9 +949,11 @@ def sample_meta(df_meta_ini, sample_name):
 
     return ser_meta
 
-def join_lanes(lane_dirs, merged_dir, data_types=['gex', 'adt', 'hto', 'meta_cell']):
+def join_lanes(lane_dirs, data_types=['gex', 'adt', 'hto', 'meta_cell']):
 
     lane_dirs = sorted(lane_dirs)
+
+    df = {}
 
     for inst_type in data_types:
 
@@ -959,17 +961,24 @@ def join_lanes(lane_dirs, merged_dir, data_types=['gex', 'adt', 'hto', 'meta_cel
 
         print('\n' + inst_type + '\n----------------')
 
+        # collect data
         for inst_dir in lane_dirs:
 
             inst_lane = inst_dir.split('/')[-1]
             inst_file = inst_dir + '/' + inst_type + '.parquet'
             if os.path.exists(inst_file):
 
-
                 inst_df = pd.read_parquet(inst_file)
+
+                # if meta add lane category
+                if 'meta' in inst_type:
+                    ser_lane = pd.Series(data=inst_lane, index=inst_df.index.tolist())
+                    inst_df['Lane 10x'] = ser_lane
+
                 print(inst_lane, inst_df.shape)
                 list_df.append(inst_df)
 
+        # merge data
         if len(list_df)>0:
             if 'meta' in inst_type:
                 df_merge = pd.concat(list_df, axis=0, sort=True)
@@ -978,7 +987,15 @@ def join_lanes(lane_dirs, merged_dir, data_types=['gex', 'adt', 'hto', 'meta_cel
 
             print('merged', inst_type, df_merge.shape)
 
-            df_merge.to_parquet(merged_dir + '/' + inst_type + '.parquet')
+            # sort columns and rows
+            cols = sorted(df_merge.columns.tolist())
+            rows = sorted(df_merge.index.tolist())
+            df_merge = df_merge.loc[rows, cols]
+
+            # save to dictionary
+            df[inst_type] = df_merge
+
+    return df
 
 def load_kb_vel_feature_matrix(inst_path, inst_sample, to_csc=True):
 
