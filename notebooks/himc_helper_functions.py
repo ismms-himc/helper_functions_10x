@@ -1,4 +1,4 @@
-# Version: 0.10.1
+# Version: 0.10.2
 # This is a set of scripts that are used in processing 10x single cell data
 
 import gzip
@@ -12,7 +12,7 @@ import os
 import matplotlib.pyplot as plt
 
 def get_version():
-    print('0.10.1', 'fixed debris threshold setting')
+    print('0.10.2', 'sort parquet labels before saving')
 
 def make_dir(directory):
     if not os.path.exists(directory):
@@ -949,11 +949,13 @@ def sample_meta(df_meta_ini, sample_name):
 
     return ser_meta
 
-def join_lanes(lane_dirs, data_types=['gex', 'adt', 'hto', 'meta_cell']):
+def merge_lanes(lane_dirs, merge_dir, data_types=['gex', 'adt', 'hto', 'meta_cell'],
+    return_df=True):
 
     lane_dirs = sorted(lane_dirs)
 
-    df = {}
+    if return_df:
+        df = {}
 
     for inst_type in data_types:
 
@@ -992,10 +994,15 @@ def join_lanes(lane_dirs, data_types=['gex', 'adt', 'hto', 'meta_cell']):
             rows = sorted(df_merge.index.tolist())
             df_merge = df_merge.loc[rows, cols]
 
-            # save to dictionary
-            df[inst_type] = df_merge
+            df_merge.to_parquet(merge_dir + '/' + inst_type + '.parquet')
 
-    return df
+            if return_df:
+                # save to dictionary
+                df[inst_type] = df_merge
+
+
+    if return_df:
+        return df
 
 def load_kb_vel_feature_matrix(inst_path, inst_sample, to_csc=True):
 
