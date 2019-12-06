@@ -1,4 +1,4 @@
-# Version: 0.10.2
+# Version: 0.11.0
 # This is a set of scripts that are used in processing 10x single cell data
 
 import gzip
@@ -12,7 +12,7 @@ import os
 import matplotlib.pyplot as plt
 
 def get_version():
-    print('0.10.2', 'sort parquet labels before saving')
+    print('0.11.0', 's3 parquet loading function')
 
 def make_dir(directory):
     if not os.path.exists(directory):
@@ -1282,3 +1282,53 @@ def plot_hto_sn_vs_gex_umi(df):
     df['meta_cell'].plot(kind='scatter',
                          x='gex-umi-sum-ash',
                          y='hto-sn-ash', alpha=0.25, s=10, figsize=(10,10), c=color_list, ylim=(0,5))
+
+def load_s3_parquet(bucket_path, filename, cols=None):
+
+    if cols == None:
+        df = pq.read_table(bucket_path + filename, use_pandas_metadata=True, filesystem=fs).to_pandas()
+    else:
+        df = pq.read_table(bucket_path + filename, use_pandas_metadata=True, filesystem=fs, columns=cols).to_pandas()
+
+    return df
+
+def add_filter(cat_title, inst_cat_search, cat_filter_list=None):
+    '''
+    Add a single filtering step; e.g. filter for barcodes with
+    this category of this category type.
+
+    To do: support exclusion of category by adding third element to tuple.
+    '''
+    if cat_filter_list == None:
+        cat_filter_list = []
+
+    if type(inst_cat_search) is list:
+        inst_cat_search = tuple(inst_cat_search)
+
+    cat_filter_list.append((cat_title, inst_cat_search))
+    return cat_filter_list
+
+def filter_meta_using_cat_filter_list(df_meta_ini, cat_filter_list):
+    df_meta = deepcopy(df_meta_ini)
+
+    for cat_tuple in cat_filter_list:
+        inst_cat_type = cat_tuple[0]
+        inst_cat_search = cat_tuple[1]
+
+        if type(inst_cat_search) is not tuple:
+            # find indexes of barcodes that match requested caetgory
+            inst_cat = inst_cat_search
+            cat_ser = df_meta[inst_cat_type]
+            found_barcodes = cat_ser[cat_ser == inst_cat].index.tolist()
+        else:
+            # find indexes of barcodes that match requested categories
+            found_barcodes = []
+            for inst_cat in inst_cat_search:
+                cat_ser = df_meta[inst_cat_type]
+                inst_found = cat_ser[cat_ser == inst_cat].index.tolist()
+                found_barcodes.extend(inst_found)
+
+        # apply progressive filters to metadata
+        df_meta = df_meta.loc[found_barcodes]
+
+    return df_meta
