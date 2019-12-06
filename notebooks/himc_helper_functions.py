@@ -1285,6 +1285,10 @@ def plot_hto_sn_vs_gex_umi(df):
 
 def load_s3_parquet(bucket_path, filename, cols=None):
 
+    import s3fs
+    import pyarrow.parquet as pq
+    fs = s3fs.S3FileSystem()
+
     if cols == None:
         df = pq.read_table(bucket_path + filename, use_pandas_metadata=True, filesystem=fs).to_pandas()
     else:
