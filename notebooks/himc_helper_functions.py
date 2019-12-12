@@ -1,4 +1,4 @@
-# Version: 0.12.0
+# Version: 0.12.1
 # This is a set of scripts that are used in processing 10x single cell data
 
 import gzip
@@ -12,7 +12,7 @@ import os
 import matplotlib.pyplot as plt
 
 def get_version():
-    print('0.12.0', 'gex debris histogram function')
+    print('0.12.1', 'sorting dataframe rows/cols to improve parquet saving')
 
 def make_dir(directory):
     if not os.path.exists(directory):
@@ -1363,3 +1363,14 @@ def set_gex_debris_thresh(meta_cell, xlim=7, ylim=100, thresh=1):
     print('keeping', len(keep_barcodes), 'cells')
     
     return keep_barcodes
+
+def sort_all_dataframes(df):
+    for inst_type in df:
+        print('sorting', inst_type)
+        inst_df = df[inst_type]
+        # sort columns and rows
+        cols = sorted(inst_df.columns.tolist())
+        rows = sorted(inst_df.index.tolist())
+        inst_df = inst_df.loc[rows, cols]    
+        
+    return df
