@@ -1,4 +1,4 @@
-# Version: 0.11.0
+# Version: 0.11.2
 # This is a set of scripts that are used in processing 10x single cell data
 
 import gzip
@@ -12,7 +12,7 @@ import os
 import matplotlib.pyplot as plt
 
 def get_version():
-    print('0.11.0', 's3 parquet loading function')
+    print('0.11.2', 'gex debris histogram function')
 
 def make_dir(directory):
     if not os.path.exists(directory):
@@ -1336,3 +1336,30 @@ def filter_meta_using_cat_filter_list(df_meta_ini, cat_filter_list):
         df_meta = df_meta.loc[found_barcodes]
 
     return df_meta
+
+def set_gex_debris_thresh(meta_cell, xlim=7, ylim=100, thresh=1):
+
+    ser_gex_ash = meta_cell['gex-umi-sum-ash']
+
+    n, bins, patches = plt.hist(ser_gex_ash, bins=100, range=(0, xlim))
+
+    colors = []
+    for inst_bin in bins:
+        if inst_bin <= thresh:
+            colors.append('red')
+        else:
+            colors.append('blue')
+
+    # apply the same color for each class to match the map
+    for patch, color in zip(patches, colors):
+        patch.set_facecolor(color)
+        
+
+    plt.ylim((0,ylim))
+    
+    keep_barcodes = ser_gex_ash[ser_gex_ash >= thresh].index.tolist()
+    
+    print('gex-ash-umi thresh', thresh, '; gex-umi thresh', np.sinh(thresh) * 5)
+    print('keeping', len(keep_barcodes), 'cells')
+    
+    return keep_barcodes
