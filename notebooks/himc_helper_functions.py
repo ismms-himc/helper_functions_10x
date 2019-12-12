@@ -1,4 +1,4 @@
-# Version: 0.11.2
+# Version: 0.12.0
 # This is a set of scripts that are used in processing 10x single cell data
 
 import gzip
@@ -12,7 +12,7 @@ import os
 import matplotlib.pyplot as plt
 
 def get_version():
-    print('0.11.2', 'gex debris histogram function')
+    print('0.12.0', 'gex debris histogram function')
 
 def make_dir(directory):
     if not os.path.exists(directory):
