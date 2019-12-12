@@ -1,4 +1,4 @@
-# Version: 0.12.1
+# Version: 0.12.3
 # This is a set of scripts that are used in processing 10x single cell data
 
 import gzip
@@ -12,7 +12,7 @@ import os
 import matplotlib.pyplot as plt
 
 def get_version():
-    print('0.12.1', 'sorting dataframe rows/cols to improve parquet saving')
+    print('0.12.3', 'cleaning vdj code')
 
 def make_dir(directory):
     if not os.path.exists(directory):
@@ -695,7 +695,8 @@ def load_prod_vdj(inst_path):
     inst_df = pd.read_csv(inst_path)
     print('all contigs', inst_df.shape)
     ser_prod = inst_df['productive']
-    keep_contigs = ser_prod[ser_prod == 'True'].index.tolist()
+
+    keep_contigs = ser_prod[ser_prod == True].index.tolist()
     inst_df = inst_df.loc[keep_contigs]
     print('productive contigs', inst_df.shape)
     return inst_df
@@ -713,6 +714,10 @@ def concat_contig(ser_row):
     return inst_contig
 
 def get_unique_contigs(inst_df):
+    '''
+    Define contigs as the merge of v, d, j, and cdr3 genes
+    Then, find all unique contigs.
+    '''
     all_contigs = []
     for inst_index in inst_df.index.tolist():
         ser_row = inst_df.loc[inst_index]
@@ -722,6 +727,10 @@ def get_unique_contigs(inst_df):
     return unique_contigs
 
 def assign_ids_to_contigs(unique_contigs):
+    '''
+    Generate a unique contig id for all contigs
+    return dictionary of contig-to-id and vice versa
+    '''
     contig_id_dict = {}
     id_contig_dict = {}
     for inst_index in range(len(unique_contigs)):
@@ -733,13 +742,22 @@ def assign_ids_to_contigs(unique_contigs):
     return contig_id_dict, id_contig_dict
 
 def get_bc_contig_combos(inst_df, contig_id_dict):
+    '''
+    Loop through the merged (across samples) filtered contigs 
+    which has one row per contig
+    
+    Define the contig (concat vdj genes) and find its unique id 
+    using contig_id_dict
+    
+    Assemble list of contigs associated with each barcode (dict 
+    with barcode keys) 
+    '''
     bc_contig_combos = {}
     for inst_row in inst_df.index.tolist():
         ser_row = inst_df.loc[inst_row]
         inst_bc = ser_row['barcode']
         inst_contig = concat_contig(ser_row)
         inst_id = contig_id_dict[inst_contig]
-        inst_clone = ser_row['raw_clonotype_id']
 
         if inst_bc not in bc_contig_combos:
             bc_contig_combos[inst_bc] = []
@@ -749,6 +767,14 @@ def get_bc_contig_combos(inst_df, contig_id_dict):
     return bc_contig_combos
 
 def generate_new_clonotypes(bc_contig_combos):
+    '''
+    Define contig combinations as a new set of clones
+    Number the new clones (rank by abundance)
+    
+    Look up contig combo for each barcode (e.g. clone)
+    Look up new clone name for contig comb
+    '''
+    
     # find most abundant contig combos (clones)
     contig_id_combos = []
     for inst_bc in bc_contig_combos:
@@ -759,11 +785,9 @@ def generate_new_clonotypes(bc_contig_combos):
     # number new clones (contig combos) based on abundance
     inst_id = 1
     combo_clone_dict = {}
-    clone_combo_dict = {}
     for inst_combo in ser_combos.index.tolist():
         new_clone_name = 'custom-clone-' + str(inst_id)
         combo_clone_dict[inst_combo] = new_clone_name
-        clone_combo_dict[new_clone_name] = inst_combo
         inst_id = inst_id + 1
 
     # make dictionary of new clones for each barcode
@@ -959,7 +983,7 @@ def merge_lanes(lane_dirs, merge_dir, data_types=['gex', 'adt', 'hto', 'meta_cel
 
     for inst_type in data_types:
 
-        list_df = []
+        df_merge = None
 
         print('\n' + inst_type + '\n----------------')
 
@@ -975,32 +999,33 @@ def merge_lanes(lane_dirs, merge_dir, data_types=['gex', 'adt', 'hto', 'meta_cel
                 # if meta add lane category
                 if 'meta' in inst_type:
                     ser_lane = pd.Series(data=inst_lane, index=inst_df.index.tolist())
-                    inst_df['Lane 10x'] = ser_lane
+                    inst_df['Lane_10x'] = ser_lane
 
                 print(inst_lane, inst_df.shape)
-                list_df.append(inst_df)
+                
+                # merge on the fly
+                if df_merge is None:
+                    df_merge = deepcopy(inst_df)
+                else:
+                    if 'meta' in inst_type:
+                        df_merge = pd.concat([df_merge, inst_df], axis=0, sort=True)
+                    else:
+                        df_merge = pd.concat([df_merge, inst_df], axis=1)
+                print('df_merge', df_merge.shape)
 
-        # merge data
-        if len(list_df)>0:
-            if 'meta' in inst_type:
-                df_merge = pd.concat(list_df, axis=0, sort=True)
-            else:
-                df_merge = pd.concat(list_df, axis=1)
+        print('merged', inst_type, df_merge.shape)
 
-            print('merged', inst_type, df_merge.shape)
+        # sort columns and rows
+        cols = sorted(df_merge.columns.tolist())
+        rows = sorted(df_merge.index.tolist())
+        df_merge = df_merge.loc[rows, cols]
 
-            # sort columns and rows
-            cols = sorted(df_merge.columns.tolist())
-            rows = sorted(df_merge.index.tolist())
-            df_merge = df_merge.loc[rows, cols]
+        df_merge.to_parquet(merge_dir + '/' + inst_type + '.parquet')
 
-            df_merge.to_parquet(merge_dir + '/' + inst_type + '.parquet')
-
-            if return_df:
-                # save to dictionary
-                df[inst_type] = df_merge
-
-
+        if return_df:
+            # save to dictionary
+            df[inst_type] = df_merge
+                
     if return_df:
         return df
 
