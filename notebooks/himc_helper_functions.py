@@ -743,14 +743,14 @@ def assign_ids_to_contigs(unique_contigs):
 
 def get_bc_contig_combos(inst_df, contig_id_dict):
     '''
-    Loop through the merged (across samples) filtered contigs 
+    Loop through the merged (across samples) filtered contigs
     which has one row per contig
-    
-    Define the contig (concat vdj genes) and find its unique id 
+
+    Define the contig (concat vdj genes) and find its unique id
     using contig_id_dict
-    
-    Assemble list of contigs associated with each barcode (dict 
-    with barcode keys) 
+
+    Assemble list of contigs associated with each barcode (dict
+    with barcode keys)
     '''
     bc_contig_combos = {}
     for inst_row in inst_df.index.tolist():
@@ -770,11 +770,11 @@ def generate_new_clonotypes(bc_contig_combos):
     '''
     Define contig combinations as a new set of clones
     Number the new clones (rank by abundance)
-    
+
     Look up contig combo for each barcode (e.g. clone)
     Look up new clone name for contig comb
     '''
-    
+
     # find most abundant contig combos (clones)
     contig_id_combos = []
     for inst_bc in bc_contig_combos:
@@ -1002,7 +1002,7 @@ def merge_lanes(lane_dirs, merge_dir, data_types=['gex', 'adt', 'hto', 'meta_cel
                     inst_df['Lane_10x'] = ser_lane
 
                 print(inst_lane, inst_df.shape)
-                
+
                 # merge on the fly
                 if df_merge is None:
                     df_merge = deepcopy(inst_df)
@@ -1025,7 +1025,7 @@ def merge_lanes(lane_dirs, merge_dir, data_types=['gex', 'adt', 'hto', 'meta_cel
         if return_df:
             # save to dictionary
             df[inst_type] = df_merge
-                
+
     if return_df:
         return df
 
@@ -1378,15 +1378,15 @@ def set_gex_debris_thresh(meta_cell, xlim=7, ylim=100, thresh=1):
     # apply the same color for each class to match the map
     for patch, color in zip(patches, colors):
         patch.set_facecolor(color)
-        
+
 
     plt.ylim((0,ylim))
-    
+
     keep_barcodes = ser_gex_ash[ser_gex_ash >= thresh].index.tolist()
-    
+
     print('gex-ash-umi thresh', thresh, '; gex-umi thresh', np.sinh(thresh) * 5)
     print('keeping', len(keep_barcodes), 'cells')
-    
+
     return keep_barcodes
 
 def sort_all_dataframes(df):
@@ -1396,6 +1396,6 @@ def sort_all_dataframes(df):
         # sort columns and rows
         cols = sorted(inst_df.columns.tolist())
         rows = sorted(inst_df.index.tolist())
-        inst_df = inst_df.loc[rows, cols]    
-        
+        inst_df = inst_df.loc[rows, cols]
+
     return df
